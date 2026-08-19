@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Brasa Burguer Delivery",
+  "description": "Delivery de hambúrgueres artesanais grelhados no fogo com fluxo de pedido passo a passo simples e rápido.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,510 @@
+{
+  "menuItems": [
+    {
+      "id": "a1",
+      "name": "Bacon Grill",
+      "category": "artesanais",
+      "price": 24,
+      "description": "Pão, blend artesanal, bacon, queijo, alface, tomate, batata palha e maionese especial.",
+      "image": "/Bacon Grill.jpg",
+      "hidden": false
+    },
+    {
+      "id": "a2",
+      "name": "Brasão",
+      "category": "artesanais",
+      "price": 29,
+      "description": "Pão, blend artesanal, 2 queijos, presunto, cheddar, bacon, ovo, calabresa, cebola roxa, tomate, alface, batata palha, molho barbecue e maionese especial.",
+      "image": "/Brasao.jpg",
+      "hidden": false
+    },
+    {
+      "id": "a3",
+      "name": "Frango-Burguer",
+      "category": "artesanais",
+      "price": 29,
+      "description": "Pão, blend artesanal, frango grelhado, queijo, presunto, bacon, ovo, tomate, alface, cebola roxa e maionese da casa.",
+      "image": "/Frango Burguer.jpg",
+      "hidden": false
+    },
+    {
+      "id": "a4",
+      "name": "Brutus",
+      "category": "artesanais",
+      "price": 32,
+      "description": "Pão, 2 blend artesanais, 2 queijos, 2 presuntos, cheddar, bacon, ovo, calabresa, cebola roxa, tomate, alface e molho.",
+      "image": "/Brutus.jpg",
+      "hidden": false
+    },
+    {
+      "id": "a5",
+      "name": "Pernil Prime",
+      "category": "artesanais",
+      "price": 33,
+      "description": "Pão, blend artesanal, churrasco de pernil, queijo, presunto, bacon, tomate, alface, cebola roxa e maionese.",
+      "image": "/Pernil Prime.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t1",
+      "name": "Misto Simples",
+      "category": "tradicionais",
+      "price": 15,
+      "description": "Pão, 2 queijo, 2 presunto, batata palha, milho e maionese especial.",
+      "image": "/Misto Simples.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t2",
+      "name": "Misto Duplo",
+      "category": "tradicionais",
+      "price": 18,
+      "description": "Pão, 3 queijo, 3 presunto, batata palha, milho e maionese especial.",
+      "image": "/Misto Dupla.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t3",
+      "name": "X-Burguer",
+      "category": "tradicionais",
+      "price": 19,
+      "description": "Pão, bife, queijo, presunto, tomate, alface, batata palha, milho e maionese especial.",
+      "image": "/X - Burgues.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t4",
+      "name": "X-Egg-Bacon",
+      "category": "tradicionais",
+      "price": 23,
+      "description": "Pão, bife, queijo, ovo, bacon, cebola roxa, tomate, alface, batata palha, milho e maionese especial.",
+      "image": "/X-Egg-Bacon.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t5",
+      "name": "X-Tudo",
+      "category": "tradicionais",
+      "price": 25,
+      "description": "Pão, bife, queijo, presunto, ovo, bacon, cebola roxa, tomate, alface, milho, batata palha e maionese especial.",
+      "image": "/X-Tudo.jpg",
+      "hidden": false
+    },
+    {
+      "id": "t6",
+      "name": "X-Tudo Especial",
+      "category": "tradicionais",
+      "price": 28,
+      "description": "Pão, 2 bifes, 2 queijos, bacon, 2 ovos, 2 presuntos, calabresa, tomate, alface, cebola roxa, milho, batata palha e maionese especial.",
+      "image": "/X-Tudo Especial.jpg",
+      "hidden": false
+    },
+    {
+      "id": "c1",
+      "name": "Espeto de Boi",
+      "category": "churrasco",
+      "price": 10,
+      "description": "Espetinho de boi grelhado de alta qualidade.",
+      "image": "/Espeto de boi.jpg"
+    },
+    {
+      "id": "c2",
+      "name": "Espeto de Porco",
+      "category": "churrasco",
+      "price": 9,
+      "description": "Espetinho de porco suculento e saboroso.",
+      "image": "/Epeto de Porco.jpg"
+    },
+    {
+      "id": "c3",
+      "name": "Medalhão de Frango",
+      "category": "churrasco",
+      "price": 12,
+      "description": "Espetinho de peito de frango enrolado com generoso bacon.",
+      "image": "/Espeto Medlhao de Frango.jpg",
+      "hidden": false
+    },
+    {
+      "id": "c4",
+      "name": "Coraçãozinho",
+      "category": "churrasco",
+      "price": 10,
+      "description": "Tradicional espetinho de coração de frango bem temperado.",
+      "image": "/Coraçãozinho.jpg",
+      "hidden": false
+    },
+    {
+      "id": "c5",
+      "name": "Meio da Asa",
+      "category": "churrasco",
+      "price": 9,
+      "description": "Espetito de meio da asa (tulipa) de frango dourada e suculenta.",
+      "image": "/Meio da asa.jpg",
+      "hidden": false
+    },
+    {
+      "id": "c6",
+      "name": "Linguiça",
+      "category": "churrasco",
+      "price": 7,
+      "description": "Espetinho de linguiça grelhada na brasa.",
+      "image": "/Churrasco de linguiça.jpg",
+      "hidden": false
+    },
+    {
+      "id": "j1",
+      "name": "Jantinha P",
+      "category": "jantinhas",
+      "price": 16,
+      "description": "Arroz, vinagrete, salpicão, feijão tropeiro.",
+      "image": "/Jantinha P.jpg",
+      "hidden": false
+    },
+    {
+      "id": "j2",
+      "name": "Jantinha M",
+      "category": "jantinhas",
+      "price": 18,
+      "description": "Arroz, vinagrete, salpicão, feijão tropeiro.",
+      "image": "/Jantinha M.jpg",
+      "hidden": false
+    },
+    {
+      "id": "j3",
+      "name": "Jantinha + Churrasco de Boi",
+      "category": "jantinhas",
+      "price": 25,
+      "description": "Arroz, feijão tropeiro, salpicão, vinagrete e churrasco de boi.",
+      "image": "/jantinha-churrasco-boi.jpg",
+      "hidden": false
+    },
+    {
+      "id": "j4",
+      "name": "Jantinha + Coraçãozinho",
+      "category": "jantinhas",
+      "price": 25,
+      "description": "Arroz, feijão tropeiro, salpicão, vinagrete e churrasco de coraçãozinho.",
+      "image": "/jantinha-churrasco-coracao.jpg",
+      "hidden": false
+    },
+    {
+      "id": "j5",
+      "name": "Jantinha + Medalhão",
+      "category": "jantinhas",
+      "price": 27,
+      "description": "Arroz, feijão tropeiro, salpicão, vinagrete churrasco de medalhão de frango.",
+      "image": "/jantinha-medalhao.jpg",
+      "hidden": false
+    },
+    {
+      "id": "d1",
+      "name": "Pepsi 2 Litros",
+      "category": "bebidas",
+      "price": 12,
+      "description": "Pepsi 2 litros super gelada para acompanhar.",
+      "image": "/Pepsi 2 litros.jpg",
+      "hidden": false
+    },
+    {
+      "id": "d2",
+      "name": "Lata Guaraná Zero",
+      "category": "bebidas",
+      "price": 6,
+      "description": "Guaraná Antarctica Zero açúcar em lata geladinho.",
+      "image": "/Lata Guaraná Zero.jpg"
+    },
+    {
+      "id": "d3",
+      "name": "Guaraná 1 Litro",
+      "category": "bebidas",
+      "price": 8,
+      "description": "Refrigerante Guaraná Antarctica garrafa de 1 litro.",
+      "image": "/Guaraná 1 litro.jpg"
+    },
+    {
+      "id": "d4",
+      "name": "Coca 600",
+      "category": "bebidas",
+      "price": 8,
+      "description": "Garrafa Coca-Cola 600ml gelada.",
+      "image": "/Coca 600.jpg",
+      "hidden": false
+    },
+    {
+      "id": "d5",
+      "name": "Fanta Laranja 2 Litros",
+      "category": "bebidas",
+      "price": 12,
+      "description": "Refrigerante Fanta Laranja 2 litros.",
+      "image": "/Fanta laranja 2 litros.jpg",
+      "hidden": true
+    },
+    {
+      "id": "d6",
+      "name": "Guaraná 2 Litros",
+      "category": "bebidas",
+      "price": 12,
+      "description": "Guaraná Antarctica 2 litros estupendamente gelado.",
+      "image": "/Guaraná 2 litros.jpg"
+    },
+    {
+      "id": "d7",
+      "name": "Coca 2 Litros",
+      "category": "bebidas",
+      "price": 15,
+      "description": "Coca-Cola sabor original garrafa de 2 litros.",
+      "image": "/Coca 2 litros.jpg",
+      "hidden": false
+    },
+    {
+      "id": "d8",
+      "name": "Coca Lata",
+      "category": "bebidas",
+      "price": 6,
+      "description": "Coca-Cola em lata 350ml trincando de gelada.",
+      "image": "/Coca lata.jpg"
+    },
+    {
+      "id": "d9",
+      "name": "Brahma Latão",
+      "category": "bebidas",
+      "price": 7,
+      "description": "Cerveja Brahma Pilsen latão 473ml gelada.",
+      "image": "/Brahma latão.jpg"
+    },
+    {
+      "id": "d10",
+      "name": "Energético Monster",
+      "category": "bebidas",
+      "price": 12,
+      "description": "Monster Energy 473ml lata.",
+      "image": "/Energético Monster.jpg"
+    },
+    {
+      "id": "d11",
+      "name": "Suco Natural Manga",
+      "category": "bebidas",
+      "price": 7,
+      "description": "Suco 100% natural sabor Manga.",
+      "image": "/Suco Natural Manga.jpg",
+      "hidden": true
+    },
+    {
+      "id": "d12",
+      "name": "Suco Natural Abacaxi c/ Hortelã",
+      "category": "bebidas",
+      "price": 7,
+      "description": "Suco 100% natural de abacaxi com Hortelã.",
+      "image": "/Suco Natural Abacaxi com Hortelã.jpg",
+      "hidden": true
+    },
+    {
+      "id": "d13",
+      "name": "Suco Natural de Maracujá",
+      "category": "bebidas",
+      "price": 7,
+      "description": "Suco 100% natural de Maracujá.",
+      "image": "/Suco natural de Maracujá.jpg",
+      "hidden": true
+    },
+    {
+      "id": "d14",
+      "name": "Caçulinha Guaraná",
+      "category": "bebidas",
+      "price": 4,
+      "description": "Refrigerante Guaraná Caçulinha 237ml.",
+      "image": "/Caçulinha Guaraná.jpg"
+    },
+    {
+      "id": "d15",
+      "name": "Budweiser",
+      "category": "bebidas",
+      "price": 9,
+      "description": "Cerveja Budweiser longneck.",
+      "image": "/Budweiser.jpg"
+    },
+    {
+      "id": "d16",
+      "name": "Heineken",
+      "category": "bebidas",
+      "price": 9,
+      "description": "Cerveja Heineken longneck.",
+      "image": "/Heineken.jpg"
+    },
+    {
+      "id": "m1",
+      "name": "Maionese",
+      "category": "maionese",
+      "price": 1,
+      "description": "Maionese caseira temperada deliciosa.",
+      "image": "/MAIONESE.jpg"
+    },
+    {
+      "id": "e1",
+      "name": "Bacon",
+      "category": "acrescimos",
+      "price": 4,
+      "description": "Adicional de bacon crocante.",
+      "image": "/Acréscimo de Bacon.jpg",
+      "hidden": false
+    },
+    {
+      "id": "e2",
+      "name": "Cheddar",
+      "category": "acrescimos",
+      "price": 4,
+      "description": "Adicional de cheddar cremoso.",
+      "image": "/Acréscimo de Cheddar.jpg",
+      "hidden": false
+    },
+    {
+      "id": "e3",
+      "name": "Calabresa",
+      "category": "acrescimos",
+      "price": 4,
+      "description": "Adicional de calabresa grelhada.",
+      "image": "/Acréscimo de Calabresa.jpg",
+      "hidden": false
+    },
+    {
+      "id": "e4",
+      "name": "Queijo",
+      "category": "acrescimos",
+      "price": 5,
+      "description": "Adicional de queijo muçarela saboroso.",
+      "image": "/Acréscimo de queijo.jpg",
+      "hidden": false
+    },
+    {
+      "id": "e5",
+      "name": "Bife/Blend de carne",
+      "category": "acrescimos",
+      "price": 6,
+      "description": "Adicional de bife/blend de carne artesanal.",
+      "image": "/Bife-Blend de carne.jpg",
+      "hidden": false
+    },
+    {
+      "id": "e6",
+      "name": "Bife de hambúrguer",
+      "category": "acrescimos",
+      "price": 4,
+      "description": "Adicional de bife de hambúrguer tradicional.",
+      "image": "/Bife de hambúrguer.jpg",
+      "hidden": false
+    }
+  ],
+  "neighborhoods": [
+    {
+      "name": "Ponte do Silva",
+      "rate": 3
+    },
+    {
+      "name": "Vila Formosa",
+      "rate": 6
+    },
+    {
+      "name": "Córrego dos Hott",
+      "rate": 6
+    },
+    {
+      "name": "Gameleira de Baixo",
+      "rate": 6
+    },
+    {
+      "name": "Córrego dos Valentim",
+      "rate": 5
+    },
+    {
+      "name": "Córrego São Francisco",
+      "rate": 6
+    },
+    {
+      "name": "Córrego do Arrozal",
+      "rate": 6
+    },
+    {
+      "name": "Córrego da Raiz",
+      "rate": 6
+    },
+    {
+      "name": "Pontões",
+      "rate": 10
+    },
+    {
+      "name": "Gameleira de Cima",
+      "rate": 10
+    },
+    {
+      "name": "Bem posta ",
+      "rate": 10
+    }
+  ],
+  "orders": [
+    {
+      "customer_name": "Jose",
+      "customer_phone": "",
+      "delivery_method": "entrega",
+      "neighborhood": "Ponte do Silva",
+      "delivery_rate": 3,
+      "complement_info": "",
+      "payment_method": "pix",
+      "cash_change_for": "",
+      "total": 35,
+      "cart": {
+        "a1": 1,
+        "d4": 1
+      },
+      "observations": {},
+      "item_extras": {},
+      "id": "ord_c6kj33owg",
+      "created_at": "2026-08-18T22:23:05.691Z",
+      "status": "entregue"
+    },
+    {
+      "customer_name": "Maria",
+      "customer_phone": "",
+      "delivery_method": "retirada",
+      "neighborhood": null,
+      "delivery_rate": 0,
+      "complement_info": "",
+      "payment_method": "pix",
+      "cash_change_for": "",
+      "total": 78,
+      "cart": {
+        "a2": 1,
+        "a4": 1,
+        "m1": 1,
+        "d1": 1
+      },
+      "observations": {},
+      "item_extras": {
+        "a4": {
+          "e1": 1
+        }
+      },
+      "id": "ord_jeqsvavhe",
+      "created_at": "2026-08-18T22:26:09.479Z",
+      "status": "entregue"
+    },
+    {
+      "customer_name": "marta",
+      "customer_phone": "",
+      "delivery_method": "entrega",
+      "neighborhood": "Córrego São Francisco",
+      "delivery_rate": 6,
+      "complement_info": "",
+      "payment_method": "dinheiro",
+      "cash_change_for": "",
+      "total": 35,
+      "cart": {
+        "a2": 1
+      },
+      "observations": {},
+      "item_extras": {},
+      "id": "ord_whf40phhf",
+      "created_at": "2026-08-18T22:29:41.500Z",
+      "status": "pendente"
+    }
+  ]
+}
