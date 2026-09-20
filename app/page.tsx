@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Flame, 
@@ -36,14 +36,24 @@ import {
   LogOut,
   RefreshCw,
   FileText,
-  Printer
+  Printer,
+  Calendar,
+  Award,
+  AlertTriangle,
+  Lightbulb,
+  Download,
+  PieChart,
+  PackageCheck,
+  TrendingDown,
+  Filter,
+  X
 } from 'lucide-react';
 
 // Define structures of Menu Items
 interface MenuItem {
   id: string;
   name: string;
-  category: 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas';
+  category: 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas' | 'marmitas';
   price: number;
   description: string;
   image: string;
@@ -422,8 +432,46 @@ const MENU_ITEMS: MenuItem[] = [
     name: 'Bife de hambÃºrguer',
     category: 'acrescimos',
     price: 4.00,
-    description: 'Adicional de bife de hambÃºrguer tradicional.',
-    image: '/Bife de hambÃºrguer.jpg'
+    description: 'Adicional de bife de hambúrguer tradicional.',
+    image: '/Bife de hambúrguer.jpg'
+  },
+
+  // MARMITAS
+  {
+    id: 'item-6401',
+    name: 'Marmitex só salpicão',
+    category: 'marmitas',
+    price: 18.00,
+    description: 'Porção generosa de salpicão especial da casa.',
+    image: '/Marmitex só salpicão.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-5489',
+    name: 'Marmitex só tropeiro',
+    category: 'marmitas',
+    price: 18.00,
+    description: 'Tradicional feijão tropeiro completo e saboroso.',
+    image: '/Marmitex só tropeiro.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-5465',
+    name: 'Marmitex só vinagrete',
+    category: 'marmitas',
+    price: 15.00,
+    description: 'Vinagrete fresco temperado no capricho.',
+    image: '/Marmitex só vinagrete.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-3737',
+    name: 'Marmitex só arroz',
+    category: 'marmitas',
+    price: 12.00,
+    description: 'Arroz soltinho e fresquinho.',
+    image: '/Marmitex só arroz.jpg',
+    hidden: false
   }
 ];
 
@@ -436,12 +484,12 @@ interface Neighborhood {
 const PRE_PROGRAMMED_NEIGHBORHOODS: Neighborhood[] = [
   { name: 'Ponte do Silva', rate: 2.00 },
   { name: 'Vila Formosa', rate: 6.00 },
-  { name: 'CÃ³rrego dos Hott', rate: 6.00 },
+  { name: 'Córrego dos Hott', rate: 6.00 },
   { name: 'Gameleira de Baixo', rate: 6.00 },
-  { name: 'CÃ³rrego dos Valentim', rate: 5.00 },
-  { name: 'CÃ³rrego SÃ£o Francisco', rate: 6.00 },
-  { name: 'CÃ³rrego do Arrozal', rate: 5.00 },
-  { name: 'CÃ³rrego da Raiz', rate: 5.00 }
+  { name: 'Córrego dos Valentim', rate: 5.00 },
+  { name: 'Córrego São Francisco', rate: 6.00 },
+  { name: 'Córrego do Arrozal', rate: 5.00 },
+  { name: 'Córrego da Raiz', rate: 5.00 }
 ];
 
 export default function Home() {
@@ -467,7 +515,7 @@ export default function Home() {
   // Step 3 Cart state (item.id -> quantity)
   const [cart, setCart] = useState<{ [itemId: string]: number }>({});
   const [itemExtras, setItemExtras] = useState<{ [itemId: string]: { [extraId: string]: number } }>({});
-  const [activeCategory, setActiveCategory] = useState<'all' | 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas'>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas' | 'marmitas'>('all');
   const [observations, setObservations] = useState<{ [itemId: string]: string }>({});
 
   const updateItemExtra = (itemId: string, extraId: string, amount: number) => {
@@ -523,13 +571,437 @@ export default function Home() {
   });
 
   const [editingNeighborhood, setEditingNeighborhood] = useState<Neighborhood | null>(null);
+  const [editingNeighborhoodRate, setEditingNeighborhoodRate] = useState<string>('');
   const [newNeighborhoodName, setNewNeighborhoodName] = useState('');
   const [newNeighborhoodRate, setNewNeighborhoodRate] = useState('');
+  const [isNeighborhoodLoading, setIsNeighborhoodLoading] = useState(false);
+  const [neighborhoodMessage, setNeighborhoodMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [orderIdToConfirmDelete, setOrderIdToConfirmDelete] = useState<string | null>(null);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState<boolean>(false);
+  const [salesReportTab, setSalesReportTab] = useState<'dashboard' | 'markdown' | 'orders'>('dashboard');
+  const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
+
+  // Period / Date filter states
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'specific' | 'custom'>('all');
+  const [selectedSpecificDate, setSelectedSpecificDate] = useState<string>(''); // 'DD/MM/YYYY'
+  const [customStartDate, setCustomStartDate] = useState<string>(''); // 'YYYY-MM-DD'
+  const [customEndDate, setCustomEndDate] = useState<string>(''); // 'YYYY-MM-DD'
+
+  // Helper date functions
+  const getLocalIsoDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDayOfWeekName = (d: Date) => {
+    const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    return days[d.getDay()] || '';
+  };
+
+  // Complete daily breakdown across ALL orders (unfiltered) to allow viewing and separating values by day
+  const allDailyStats = useMemo(() => {
+    if (!adminOrders || adminOrders.length === 0) return [];
+    const map: Record<string, {
+      date: string;
+      isoDate: string;
+      dayOfWeek: string;
+      revenue: number;
+      ordersCount: number;
+      itemsCount: number;
+      deliveryFees: number;
+      timestamp: number;
+    }> = {};
+
+    adminOrders.forEach(o => {
+      const d = new Date(o.created_at);
+      if (isNaN(d.getTime())) return;
+      const dateStr = d.toLocaleDateString('pt-BR');
+      const iso = getLocalIsoDate(d);
+      const dayOfWeek = getDayOfWeekName(d);
+
+      if (!map[dateStr]) {
+        map[dateStr] = {
+          date: dateStr,
+          isoDate: iso,
+          dayOfWeek,
+          revenue: 0,
+          ordersCount: 0,
+          itemsCount: 0,
+          deliveryFees: 0,
+          timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+        };
+      }
+
+      map[dateStr].revenue += Number(o.total || 0);
+      map[dateStr].ordersCount += 1;
+      map[dateStr].deliveryFees += Number(o.delivery_rate || 0);
+
+      if (o.cart && typeof o.cart === 'object') {
+        Object.values(o.cart).forEach(q => {
+          map[dateStr].itemsCount += Number(q) || 0;
+        });
+      }
+      if (o.item_extras && typeof o.item_extras === 'object') {
+        Object.values(o.item_extras).forEach(extras => {
+          if (extras && typeof extras === 'object') {
+            Object.values(extras).forEach(eq => {
+              map[dateStr].itemsCount += Number(eq) || 0;
+            });
+          }
+        });
+      }
+    });
+
+    const list = Object.values(map).map(day => ({
+      ...day,
+      ticketMedio: day.ordersCount > 0 ? day.revenue / day.ordersCount : 0
+    }));
+
+    // Sort descending by date (most recent first)
+    list.sort((a, b) => b.timestamp - a.timestamp);
+    return list;
+  }, [adminOrders]);
+
+  // Filtered orders according to selected date or period
+  const filteredAdminOrders = useMemo(() => {
+    if (periodFilter === 'all') return adminOrders;
+    const now = new Date();
+    const todayIso = getLocalIsoDate(now);
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(now.getDate() - 1);
+    const yesterdayIso = getLocalIsoDate(yesterdayDate);
+
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime();
+    const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime();
+
+    return adminOrders.filter(o => {
+      const d = new Date(o.created_at);
+      if (isNaN(d.getTime())) return false;
+      const dStr = d.toLocaleDateString('pt-BR');
+      const dIso = getLocalIsoDate(d);
+      const orderDayTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+      if (periodFilter === 'specific') {
+        return dStr === selectedSpecificDate;
+      }
+      if (periodFilter === 'today') {
+        return dIso === todayIso;
+      }
+      if (periodFilter === 'yesterday') {
+        return dIso === yesterdayIso;
+      }
+      if (periodFilter === '7days') {
+        return orderDayTime >= sevenDaysAgo;
+      }
+      if (periodFilter === '30days') {
+        return orderDayTime >= thirtyDaysAgo;
+      }
+      if (periodFilter === 'custom') {
+        if (customStartDate && dIso < customStartDate) return false;
+        if (customEndDate && dIso > customEndDate) return false;
+        return true;
+      }
+      return true;
+    });
+  }, [adminOrders, periodFilter, selectedSpecificDate, customStartDate, customEndDate]);
+
+  // Computed Sales Analytics and Business Intelligence (respecting the active date/period filter)
+  const salesAnalytics = useMemo(() => {
+    if (!filteredAdminOrders || filteredAdminOrders.length === 0) {
+      let emptyPeriodLabel = 'Nenhum pedido';
+      if (periodFilter === 'specific' && selectedSpecificDate) {
+        emptyPeriodLabel = `Dia ${selectedSpecificDate} (0 pedidos)`;
+      } else if (periodFilter === 'today') {
+        emptyPeriodLabel = 'Hoje (0 pedidos)';
+      } else if (periodFilter === 'yesterday') {
+        emptyPeriodLabel = 'Ontem (0 pedidos)';
+      } else if (periodFilter === '7days') {
+        emptyPeriodLabel = 'Últimos 7 dias (0 pedidos)';
+      } else if (periodFilter === '30days') {
+        emptyPeriodLabel = 'Últimos 30 dias (0 pedidos)';
+      } else if (periodFilter === 'custom') {
+        emptyPeriodLabel = 'Período customizado (0 pedidos)';
+      }
+
+      return {
+        totalRevenue: 0,
+        totalOrders: 0,
+        totalItemsSold: 0,
+        ticketMedio: 0,
+        totalDeliveryFees: 0,
+        firstDate: null,
+        lastDate: null,
+        periodFormatted: emptyPeriodLabel,
+        topProducts: [] as { name: string; category: string; price: number; qty: number; revenue: number; sharePercentage: number }[],
+        lowTurnProducts: [] as MenuItem[],
+        unsoldTotalCount: menuItems.length,
+        top5RevenueShare: 0,
+        dailyBreakdown: [] as { date: string; revenue: number; ordersCount: number }[],
+        peakDay: null as { date: string; revenue: number; ordersCount: number } | null,
+        trend: 'Sem registros no período selecionado',
+        pixCount: 0,
+        cashCount: 0,
+        deliveryCount: 0,
+        pickupCount: 0
+      };
+    }
+
+    const totalRevenue = filteredAdminOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const totalDeliveryFees = filteredAdminOrders.reduce((sum, o) => sum + Number(o.delivery_rate || 0), 0);
+    const totalOrders = filteredAdminOrders.length;
+    const ticketMedio = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Period calculation
+    const validDates = filteredAdminOrders
+      .map(o => new Date(o.created_at))
+      .filter(d => !isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const firstDate = validDates[0] || null;
+    const lastDate = validDates[validDates.length - 1] || null;
+
+    let periodFormatted = 'Período não identificado';
+    if (periodFilter === 'specific' && selectedSpecificDate) {
+      const dayStat = allDailyStats.find(s => s.date === selectedSpecificDate);
+      periodFormatted = `${selectedSpecificDate}${dayStat?.dayOfWeek ? ` · ${dayStat.dayOfWeek}` : ''}`;
+    } else if (periodFilter === 'today') {
+      periodFormatted = `Hoje (${new Date().toLocaleDateString('pt-BR')})`;
+    } else if (periodFilter === 'yesterday') {
+      const yd = new Date();
+      yd.setDate(yd.getDate() - 1);
+      periodFormatted = `Ontem (${yd.toLocaleDateString('pt-BR')})`;
+    } else if (periodFilter === '7days') {
+      periodFormatted = 'Últimos 7 dias';
+    } else if (periodFilter === '30days') {
+      periodFormatted = 'Últimos 30 dias';
+    } else if (periodFilter === 'custom') {
+      const s = customStartDate ? new Date(customStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início';
+      const e = customEndDate ? new Date(customEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Hoje';
+      periodFormatted = `${s} a ${e}`;
+    } else {
+      periodFormatted = firstDate && lastDate
+        ? `${firstDate.toLocaleDateString('pt-BR')} a ${lastDate.toLocaleDateString('pt-BR')}`
+        : 'Histórico Completo';
+    }
+
+    // Products sales breakdown (Cart + Extras)
+    const productStats: { [id: string]: { name: string; category: string; price: number; qty: number; revenue: number } } = {};
+    let totalItemsSold = 0;
+
+    filteredAdminOrders.forEach(order => {
+      if (order.cart && typeof order.cart === 'object') {
+        Object.entries(order.cart).forEach(([itemId, qty]) => {
+          const q = Number(qty) || 0;
+          totalItemsSold += q;
+          const item = menuItems.find(m => m.id === itemId);
+          const name = item ? item.name : `Item (${itemId})`;
+          const cat = item ? item.category : 'outros';
+          const price = item ? item.price : 0;
+
+          if (!productStats[itemId]) {
+            productStats[itemId] = { name, category: cat, price, qty: 0, revenue: 0 };
+          }
+          productStats[itemId].qty += q;
+          productStats[itemId].revenue += q * price;
+        });
+      }
+
+      if (order.item_extras && typeof order.item_extras === 'object') {
+        Object.entries(order.item_extras).forEach(([_, extras]) => {
+          if (extras && typeof extras === 'object') {
+            Object.entries(extras).forEach(([extraId, extraQty]) => {
+              const eq = Number(extraQty) || 0;
+              totalItemsSold += eq;
+              const extraItem = menuItems.find(m => m.id === extraId);
+              const extraName = extraItem ? extraItem.name : `Adicional (${extraId})`;
+              const extraCat = extraItem ? extraItem.category : 'acrescimos';
+              const extraPrice = extraItem ? extraItem.price : 0;
+
+              if (!productStats[extraId]) {
+                productStats[extraId] = { name: extraName, category: extraCat, price: extraPrice, qty: 0, revenue: 0 };
+              }
+              productStats[extraId].qty += eq;
+              productStats[extraId].revenue += eq * extraPrice;
+            });
+          }
+        });
+      }
+    });
+
+    const allSoldProducts = Object.values(productStats);
+    const sortedByQtyAndRev = [...allSoldProducts].sort((a, b) => {
+      if (b.qty !== a.qty) return b.qty - a.qty;
+      return b.revenue - a.revenue;
+    });
+
+    const topProducts = sortedByQtyAndRev.slice(0, 5).map(p => ({
+      ...p,
+      sharePercentage: totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0
+    }));
+
+    const top5Revenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
+    const top5RevenueShare = totalRevenue > 0 ? (top5Revenue / totalRevenue) * 100 : 0;
+
+    // Low turn / zero sales products
+    const soldIds = new Set(Object.keys(productStats));
+    const unsoldMenuItems = menuItems.filter(item => !soldIds.has(item.id));
+    const lowTurnProducts = unsoldMenuItems.slice(0, 5);
+
+    // Daily breakdown
+    const dailyMap: { [dateStr: string]: { date: string; revenue: number; ordersCount: number } } = {};
+    filteredAdminOrders.forEach(o => {
+      const dStr = o.created_at ? new Date(o.created_at).toLocaleDateString('pt-BR') : 'Data Indefinida';
+      if (!dailyMap[dStr]) {
+        dailyMap[dStr] = { date: dStr, revenue: 0, ordersCount: 0 };
+      }
+      dailyMap[dStr].revenue += Number(o.total || 0);
+      dailyMap[dStr].ordersCount += 1;
+    });
+
+    const dailyBreakdown = Object.values(dailyMap).sort((a, b) => b.revenue - a.revenue);
+    const peakDay = dailyBreakdown[0] || null;
+
+    const trend = filteredAdminOrders.length >= 3 
+      ? 'Concentração ativa de vendas no recorte selecionado' 
+      : 'Amostragem pontual no período selecionado';
+
+    const pixCount = filteredAdminOrders.filter(o => o.payment_method === 'pix').length;
+    const cashCount = filteredAdminOrders.filter(o => o.payment_method === 'dinheiro').length;
+    const deliveryCount = filteredAdminOrders.filter(o => o.delivery_method === 'entrega').length;
+    const pickupCount = filteredAdminOrders.filter(o => o.delivery_method === 'retirada').length;
+
+    return {
+      totalRevenue,
+      totalOrders,
+      totalItemsSold,
+      ticketMedio,
+      totalDeliveryFees,
+      firstDate,
+      lastDate,
+      periodFormatted,
+      topProducts,
+      lowTurnProducts,
+      unsoldTotalCount: unsoldMenuItems.length,
+      top5RevenueShare,
+      dailyBreakdown,
+      peakDay,
+      trend,
+      pixCount,
+      cashCount,
+      deliveryCount,
+      pickupCount
+    };
+  }, [filteredAdminOrders, menuItems, periodFilter, selectedSpecificDate, customStartDate, customEndDate, allDailyStats]);
+
+  const generateMarkdownReport = () => {
+    const {
+      totalRevenue,
+      totalOrders,
+      totalItemsSold,
+      ticketMedio,
+      totalDeliveryFees,
+      periodFormatted,
+      topProducts,
+      lowTurnProducts,
+      top5RevenueShare,
+      peakDay,
+      pixCount,
+      unsoldTotalCount
+    } = salesAnalytics;
+
+    return `# Relatório Executivo de Faturamento e Desempenho de Vendas - Brasa Burguer
+
+---
+
+### 1. Visão Geral das Vendas
+
+| Métrica | Valor Consolidado |
+| :--- | :--- |
+| **Faturamento Total** | **R$ ${totalRevenue.toFixed(2)}** |
+| **Volume Total de Itens Vendidos** | **${totalItemsSold} unidades** |
+| **Total de Pedidos / Transações** | **${totalOrders} pedidos** |
+| **Ticket Médio por Transação** | **R$ ${ticketMedio.toFixed(2)}** |
+| **Período Analisado** | **${periodFormatted}** |
+| **Taxas de Entrega Coletadas** | **R$ ${totalDeliveryFees.toFixed(2)}** |
+
+---
+
+### 2. Detalhamento por Data (Valores Separados dos Dias)
+| Data | Dia da Semana | Qtd. Pedidos | Itens | Taxas de Entrega | Faturamento Total |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+${allDailyStats.map(d => `| **${d.date}** | ${d.dayOfWeek} | ${d.ordersCount} | ${d.itemsCount} un. | R$ ${d.deliveryFees.toFixed(2)} | **R$ ${d.revenue.toFixed(2)}** |`).join('\n')}
+
+---
+
+### 3. Desempenho de Produtos
+
+#### 🏆 Top 5 Produtos Mais Vendidos (Volume e Faturamento)
+| Produto | Categoria | Qtd. Vendida | Faturamento (R$) | % do Faturamento Total |
+| :--- | :--- | :---: | :---: | :---: |
+${topProducts.map(p => `| **${p.name}** | ${p.category} | **${p.qty} un.** | **R$ ${p.revenue.toFixed(2)}** | **${p.sharePercentage.toFixed(1)}%** |`).join('\n')}
+
+> **Representatividade do Top 5:** Os 5 principais produtos concentram **${top5RevenueShare.toFixed(1)}%** de todo o faturamento da operação no período.
+
+#### ⚠️ Produtos com Menor Desempenho / Baixo Giro (${unsoldTotalCount} itens sem giro)
+| Produto / Item | Categoria | Preço Unitário | Status |
+| :--- | :--- | :---: | :---: |
+${lowTurnProducts.map(p => `| **${p.name}** | ${p.category} | **R$ ${p.price.toFixed(2)}** | **0 vendas no período** |`).join('\n')}
+
+---
+
+### 4. Análise Temporal e Tendências
+
+${peakDay ? `* **Pico de Vendas:** O dia **${peakDay.date}** registrou o maior volume de vendas, totalizando **R$ ${peakDay.revenue.toFixed(2)}** (${totalRevenue > 0 ? ((peakDay.revenue / totalRevenue) * 100).toFixed(1) : 0}% do total) em **${peakDay.ordersCount} pedidos**.` : '* **Pico de Vendas:** Sem registros suficientes no período.'}
+* **Tendência Geral:** A operação apresenta concentração de pedidos em dias específicos, apontando forte oportunidade de expansão através de campanhas de recorrência semanal.
+
+---
+
+### 5. Insights e Recomendações de Ação
+
+#### 🟢 Pontos Fortes da Operação
+1. **Força da Linha Artesanal:** Alta preferência e valor percebido nos hambúrgueres artesanais.
+2. **Ticket Médio Consistente:** Média de **R$ ${ticketMedio.toFixed(2)}** por pedido com combos de bebidas e adicionais.
+3. **Adesão a Pagamentos Digitais:** **${totalOrders > 0 ? ((pixCount / totalOrders) * 100).toFixed(0) : 0}%** dos pedidos quitados via PIX, agilizando o fluxo de caixa.
+
+#### 🔴 Gargalos e Oportunidades de Melhoria
+1. **Concentração Excessiva de Receita:** Elevada dependência dos lanches do topo.
+2. **Cauda Longa Inativa:** ${unsoldTotalCount} produtos do cardápio sem nenhuma saída registrada.
+3. **Oscilação no Fluxo Semanal:** Necessidade de nivelamento de demanda nos dias de menor movimento.
+
+#### 🎯 2 Recomendações Estratégicas Práticas
+1. **Criação de Combos Promocionais (Cross-Selling):** Montar ofertas casadas (Hambúrguer + Bebida + Sobremesa) para aumentar o giro de categorias paradas.
+2. **Campanhas de Ativação no WhatsApp:** Enviar ofertas exclusivas em dias estratégicos para reativar clientes da base.
+`;
+  };
+
+  const handleDownloadMarkdownReport = () => {
+    const md = generateMarkdownReport();
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio_executivo_brasa_${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyMarkdownReport = async () => {
+    const md = generateMarkdownReport();
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopiedMarkdown(true);
+      setTimeout(() => setCopiedMarkdown(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy markdown report:', err);
+    }
+  };
 
   // Secure dynamic configurations loaded safely on mounted runtime
   const [whatsappNumber, setWhatsappNumber] = useState<string>(() => {
@@ -621,10 +1093,11 @@ export default function Home() {
   };
 
   const handleToggleSelectAll = () => {
-    if (selectedOrderIds.length === adminOrders.length) {
+    const currentTargetOrders = periodFilter === 'all' ? adminOrders : filteredAdminOrders;
+    if (currentTargetOrders.length > 0 && selectedOrderIds.length === currentTargetOrders.length) {
       setSelectedOrderIds([]);
     } else {
-      setSelectedOrderIds(adminOrders.map(o => o.id));
+      setSelectedOrderIds(currentTargetOrders.map(o => o.id));
     }
   };
 
@@ -875,57 +1348,116 @@ export default function Home() {
     }
   };
 
-  const handleAddNeighborhood = async () => {
-    if (!newNeighborhoodName || !newNeighborhoodRate) return;
+  const handleStartEditNeighborhood = (n: Neighborhood) => {
+    setEditingNeighborhood(n);
+    setEditingNeighborhoodRate(n.rate.toString());
+    setNeighborhoodMessage(null);
+  };
+
+  const handleAddNeighborhood = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const name = newNeighborhoodName.trim();
+    const rawRate = newNeighborhoodRate.trim().replace(',', '.');
+
+    if (!name) {
+      setNeighborhoodMessage({ type: 'error', text: 'Por favor, digite o nome do bairro.' });
+      return;
+    }
+    if (rawRate === '' || isNaN(Number(rawRate)) || Number(rawRate) < 0) {
+      setNeighborhoodMessage({ type: 'error', text: 'Por favor, informe uma taxa válida (ex: 5,00 ou 0 para grátis).' });
+      return;
+    }
+
+    const rate = Number(rawRate);
+    setIsNeighborhoodLoading(true);
+    setNeighborhoodMessage(null);
+
     try {
       const resp = await fetch('/api/neighborhoods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newNeighborhoodName, rate: Number(newNeighborhoodRate) })
+        body: JSON.stringify({ name, rate })
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        if(data.success && data.neighborhood) {
-           setNeighborhoods([...neighborhoods, data.neighborhood]);
-        }
+      const data = await resp.json();
+      if (resp.ok && data.success && data.neighborhood) {
+        setNeighborhoods(prev => {
+          const idx = prev.findIndex(item => item.name.trim().toLowerCase() === data.neighborhood.name.trim().toLowerCase());
+          if (idx !== -1) {
+            const updated = [...prev];
+            updated[idx] = data.neighborhood;
+            return updated;
+          }
+          return [...prev, data.neighborhood];
+        });
         setNewNeighborhoodName('');
         setNewNeighborhoodRate('');
+        setNeighborhoodMessage({ type: 'success', text: `Bairro "${data.neighborhood.name}" adicionado com sucesso!` });
+      } else {
+        setNeighborhoodMessage({ type: 'error', text: data.error || 'Erro ao adicionar bairro.' });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setNeighborhoodMessage({ type: 'error', text: err.message || 'Erro de conexão ao adicionar bairro.' });
+    } finally {
+      setIsNeighborhoodLoading(false);
     }
   };
 
   const handleDeleteNeighborhood = async (name: string) => {
-    if (!confirm(`Deseja realmente excluir o bairro ${name}?`)) return;
+    if (!confirm(`Deseja realmente excluir o bairro "${name}"?`)) return;
+    setIsNeighborhoodLoading(true);
+    setNeighborhoodMessage(null);
     try {
-      const resp = await fetch(`/api/neighborhoods?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
-      if (resp.ok) {
-        setNeighborhoods(neighborhoods.filter(n => n.name !== name));
+      const resp = await fetch(`/api/neighborhoods?name=${encodeURIComponent(name.trim())}`, { method: 'DELETE' });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        setNeighborhoods(prev => prev.filter(n => n.name.trim().toLowerCase() !== name.trim().toLowerCase()));
+        if (selectedNeighborhood?.name.trim().toLowerCase() === name.trim().toLowerCase()) {
+          setSelectedNeighborhood(null);
+        }
+        setNeighborhoodMessage({ type: 'success', text: `Bairro "${name}" excluído com sucesso!` });
+      } else {
+        setNeighborhoodMessage({ type: 'error', text: data.error || 'Erro ao excluir bairro.' });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setNeighborhoodMessage({ type: 'error', text: err.message || 'Erro de conexão ao excluir bairro.' });
+    } finally {
+      setIsNeighborhoodLoading(false);
     }
   };
 
-  const handleUpdateNeighborhoodRate = async (name: string, rate: number) => {
+  const handleUpdateNeighborhoodRate = async (name: string) => {
+    const rawRate = editingNeighborhoodRate.trim().replace(',', '.');
+    if (rawRate === '' || isNaN(Number(rawRate)) || Number(rawRate) < 0) {
+      setNeighborhoodMessage({ type: 'error', text: 'Por favor, informe uma taxa válida (ex: 5,00 ou 0).' });
+      return;
+    }
+
+    const rate = Number(rawRate);
+    setIsNeighborhoodLoading(true);
+    setNeighborhoodMessage(null);
+
     try {
       const resp = await fetch('/api/neighborhoods', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, rate })
+        body: JSON.stringify({ name: name.trim(), rate })
       });
-      if (resp.ok) {
-        setNeighborhoods(prev => prev.map(n => n.name === name ? { ...n, rate } : n));
+      const data = await resp.json();
+      if (resp.ok && data.success && data.neighborhood) {
+        setNeighborhoods(prev => prev.map(n => n.name.trim().toLowerCase() === name.trim().toLowerCase() ? data.neighborhood : n));
         setEditingNeighborhood(null);
+        setEditingNeighborhoodRate('');
+        setNeighborhoodMessage({ type: 'success', text: `Taxa do bairro "${name}" atualizada para R$ ${rate.toFixed(2)}!` });
       } else {
-        setNeighborhoods(prev => prev.map(n => n.name === name ? { ...n, rate } : n));
-        setEditingNeighborhood(null);
+        setNeighborhoodMessage({ type: 'error', text: data.error || 'Erro ao atualizar taxa.' });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating neighborhood rate:', err);
-      setNeighborhoods(prev => prev.map(n => n.name === name ? { ...n, rate } : n));
-      setEditingNeighborhood(null);
+      setNeighborhoodMessage({ type: 'error', text: err.message || 'Erro de conexão ao atualizar taxa.' });
+    } finally {
+      setIsNeighborhoodLoading(false);
     }
   };
 
@@ -963,6 +1495,7 @@ export default function Home() {
     selectedNeighborhood: Neighborhood | null;
     complementInfo: string;
     totalAmount: number;
+    paymentMethod?: 'pix' | 'dinheiro' | null;
   } | null>(null);
   const [lastWhatsAppText, setLastWhatsAppText] = useState<string>('');
 
@@ -1219,6 +1752,7 @@ export default function Home() {
         selectedNeighborhood,
         complementInfo,
         totalAmount: total,
+        paymentMethod,
       });
 
       // Clear the active cart and comments to automatically conclude and finalize the session
@@ -1230,11 +1764,36 @@ export default function Home() {
     window.open(`https://wa.me/${whatsappNumber}?text=${finalEncodedText}`, '_blank');
   };
 
-  // Mock Copy Pix Key
+  // Robust Copy Pix Key with visual feedback and mobile fallback
   const handleCopyPixKey = () => {
-    navigator.clipboard.writeText(pixKey);
-    setPixCopied(true);
-    setTimeout(() => setPixCopied(false), 2000);
+    if (typeof window !== 'undefined' && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(pixKey).then(() => {
+        setPixCopied(true);
+        setTimeout(() => setPixCopied(false), 2500);
+      }).catch(() => {
+        fallbackCopyText(pixKey);
+      });
+    } else {
+      fallbackCopyText(pixKey);
+    }
+  };
+
+  const fallbackCopyText = (text: string) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setPixCopied(true);
+      setTimeout(() => setPixCopied(false), 2500);
+    } catch (e) {
+      console.error('Fallback copy error:', e);
+    }
   };
 
   // Custom step titles/progress
@@ -1495,7 +2054,7 @@ export default function Home() {
                       Locais de Entrega Preservados
                     </h2>
                     <p className="text-xs text-[#8C7E6D] mt-1 font-medium" id="location-subtitle">
-                      Selecione um dos nossos bairros integrados e digite o endereÃ§o.
+                      Selecione um dos nossos bairros integrados e digite o endereço.
                     </p>
                   </div>
 
@@ -1532,6 +2091,11 @@ export default function Home() {
                                 <p className="font-bold text-sm" id={`neighborhood-name-${index}`}>{neighborhood.name}</p>
                               </div>
                             </div>
+                            {isSelected && (
+                              <div className="w-6 h-6 rounded-full bg-[#8B4513] text-white flex items-center justify-center shrink-0 shadow-sm">
+                                <Check className="w-3.5 h-3.5" />
+                              </div>
+                            )}
                           </button>
 
                           {isSelected && (
@@ -1542,12 +2106,12 @@ export default function Home() {
                               id="reference-inline-wrapper"
                             >
                               <label className="block text-xs font-bold text-[#8C7E6D] uppercase tracking-wider" htmlFor="complement-info-field">
-                                Ponto de ReferÃªncia <span className="text-[#8C7E6D] font-normal">(Opcional)</span>
+                                Ponto de Referência <span className="text-[#8C7E6D] font-normal">(Opcional)</span>
                               </label>
                               <input
                                 id="complement-info-field"
                                 type="text"
-                                placeholder="Ex: PrÃ³ximo ao mercado, portÃ£o azul, etc."
+                                placeholder="Ex: Próximo ao mercado, portão azul, etc."
                                 value={complementInfo}
                                 onChange={(e) => setComplementInfo(e.target.value)}
                                 className="w-full h-[37px] px-4 bg-[#FDFBF7] border border-[#8B4513]/30 rounded-xl text-[#4A3728] placeholder:text-[#8C7E6D]/50 focus:outline-none focus:ring-1 focus:ring-[#8B4513] focus:border-[#8B4513] transition-all font-medium text-base sm:text-xs"
@@ -1600,16 +2164,17 @@ export default function Home() {
                   
                   {/* Items Catalog List organized by Categories */}
                   <div className="space-y-6" id="catalog-listing">
-                    {(['artesanais', 'tradicionais', 'maionese', 'churrasco', 'jantinhas', 'bebidas', 'sobremesas'] as const).map((catName) => {
+                    {(['artesanais', 'tradicionais', 'marmitas', 'maionese', 'churrasco', 'jantinhas', 'bebidas', 'sobremesas'] as const).map((catName) => {
                       const categoryDisplayMap = {
-                        artesanais: 'ðŸ” HambÃºrgueres Artesanais',
-                          sobremesas: 'ðŸ° Sobremesas',
-                        tradicionais: 'ðŸ” HambÃºrgueres Tradicionais',
-                        churrasco: 'ðŸ¥© Churrasco na Brasa',
-                        jantinhas: 'ðŸ› Jantinhas Caprichadas',
-                        bebidas: 'ðŸ¥¤ Bebidas & Cervejas',
-                        maionese: 'ðŸ¥› Maionese Caseira',
-                        acrescimos: 'âž• Adicionais e AcrÃ©scimos'
+                        artesanais: '🍔 Hambúrgueres Artesanais',
+                        tradicionais: '🍔 Hambúrgueres Tradicionais',
+                        marmitas: '🍱 Marmitas',
+                        sobremesas: '🍰 Sobremesas',
+                        churrasco: '🥩 Churrasco na Brasa',
+                        jantinhas: '🍛 Jantinhas Caprichadas',
+                        bebidas: '🥤 Bebidas & Cervejas',
+                        maionese: '🥛 Maionese Caseira',
+                        acrescimos: '➕ Adicionais e Acréscimos'
                       };
 
                       const filteredItems = menuItems.filter(item => item.category === catName && !item.hidden);
@@ -1662,7 +2227,7 @@ export default function Home() {
                                            {item.description}
                                          </p>
                                          <span className="inline-flex items-center gap-1 text-[10px] text-[#8B4513] font-bold uppercase tracking-wider hover:underline pt-0.5" id="see-more-link">
-                                           ðŸ” Ver descriÃ§Ã£o completa
+                                           ðŸ”  Ver descriÃ§Ã£o completa
                                          </span>
                                        </div>
                                      </div>
@@ -1957,46 +2522,50 @@ export default function Home() {
                       </button>
                     </div>
 
-                    {/* Conditional Pix details visual */}
-                    {paymentMethod === 'pix' && (
+                    {/* Conditional Pix information - OCULTO */}
+                    {/* {paymentMethod === 'pix' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="bg-[#FDFBF7] p-4 rounded-2xl border border-[#E5E0D8] space-y-3 shadow-inner"
+                        className="bg-[#FDFBF7] p-3.5 rounded-2xl border border-[#E5E0D8] space-y-2 shadow-inner"
                         id="pix-credentials-holder"
                       >
-                        <div className="flex items-center gap-3.5" id="pix-instruction">
-                          <div className="bg-[#8B4513]/5 p-2.5 rounded-xl border border-[#8B4513]/20 text-[#8B4513]" id="pix-box">
-                            <QrCode className="w-7 h-7 stroke-[1.5]" />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="bg-[#8B4513]/10 p-1.5 rounded-xl text-[#8B4513]" id="pix-box">
+                              <QrCode className="w-4 h-4 stroke-[1.5]" />
+                            </div>
+                            <span className="text-xs font-bold text-[#4A3728]">
+                              Chave Pix (Copia e Cola)
+                            </span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-[#4A3728]">Chave Pix CNPJ / E-mail</p>
-                            <p className="text-[11px] text-[#8C7E6D] font-semibold truncate" id="pix-key-display">{pixKey}</p>
-                          </div>
+                          <span className="text-[10px] font-bold text-[#2E7D32] bg-[#EAF1EA] border border-[#C8E6C9] px-2 py-0.5 rounded-full">
+                            Destacado
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-white border border-[#E5E0D8] p-2 rounded-xl">
+                          <code className="flex-1 font-mono text-xs font-bold text-[#4A3728] truncate px-1 select-all">
+                            {pixKey}
+                          </code>
                           <button
                             type="button"
                             onClick={handleCopyPixKey}
-                            className="bg-white hover:bg-[#F5F2ED] text-[#4A3728] px-3 py-1.5 rounded-xl text-[10px] font-bold border border-[#E5E0D8] transition-all flex items-center gap-1 shrink-0 cursor-pointer"
-                            id="copy-pix-button"
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0 ${
+                              pixCopied
+                                ? 'bg-[#2E7D32] text-white'
+                                : 'bg-[#8B4513] hover:bg-[#72380f] text-white'
+                            }`}
                           >
-                            {pixCopied ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-[#556B2F]" />
-                                Copiado!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 text-[#8C7E6D]" />
-                                Copiar
-                              </>
-                            )}
+                            {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {pixCopied ? 'Copiado!' : 'Copiar Pix'}
                           </button>
                         </div>
-                        <p className="text-[10px] text-[#8C7E6D] leading-normal font-medium" id="pix-caveat">
-                          * Copie a chave Pix acima e efetue o pagamento no app de seu banco. ApÃ³s enviar o pedido no WhatsApp, por gentileza mande o comprovante para agilizar o envio de sua entrega!
+                        <p className="text-xs text-[#4A3728] font-medium pt-1" id="pix-caveat">
+                          Copie a chave pix e finalize o pedido antes de pagar.
                         </p>
                       </motion.div>
-                    )}
+                    )} */}
 
                     {/* Conditional Cash change request */}
                     {paymentMethod === 'dinheiro' && (
@@ -2045,7 +2614,7 @@ export default function Home() {
                                 className="text-xs text-[#d32f2f] font-semibold mt-1 flex items-center gap-1" 
                                 id="change-calculated-warning"
                               >
-                                âš ï¸ O valor inserido Ã© menor que o total do pedido (<strong className="font-mono">R$ {grandTotal.toFixed(2)}</strong>)
+                                âš ï¸  O valor inserido Ã© menor que o total do pedido (<strong className="font-mono">R$ {grandTotal.toFixed(2)}</strong>)
                               </motion.p>
                             );
                           }
@@ -2183,16 +2752,58 @@ export default function Home() {
 
                   {/* Summary Details Badge */}
                   <div className="bg-white border border-[#E5E0D8] p-4 rounded-xl text-left text-xs space-y-1.5" id="order-summary-box">
-                    <p className="text-[#4A3728] font-medium" id="summary-client-name">ðŸ‘¨â€ðŸ³ <strong>Cliente:</strong> {completedOrder ? completedOrder.customerName || 'Cliente Brasa' : customerName || 'Cliente Brasa'}</p>
-                    <p className="text-[#4A3728] font-medium" id="summary-client-method">ðŸ›µ <strong>Modo:</strong> {(completedOrder ? completedOrder.deliveryMethod : deliveryMethod) === 'entrega' ? 'Entrega em domicÃ­lio' : 'Retirada na loja'}</p>
+                    <p className="text-[#4A3728] font-medium" id="summary-client-name">👤 <strong>Cliente:</strong> {completedOrder ? completedOrder.customerName || 'Cliente Brasa' : customerName || 'Cliente Brasa'}</p>
+                    <p className="text-[#4A3728] font-medium" id="summary-client-method">🛵 <strong>Modo:</strong> {(completedOrder ? completedOrder.deliveryMethod : deliveryMethod) === 'entrega' ? 'Entrega em domicílio' : 'Retirada na loja'}</p>
                     {((completedOrder ? completedOrder.deliveryMethod : deliveryMethod) === 'entrega') && (
-                      <p className="text-[#4A3728] leading-normal font-medium" id="summary-client-address">ðŸ“ <strong>Entrega:</strong> Bairro {completedOrder ? completedOrder.selectedNeighborhood?.name : selectedNeighborhood?.name}{(completedOrder ? completedOrder.complementInfo : complementInfo) ? ` - Complemento: ${completedOrder ? completedOrder.complementInfo : complementInfo}` : ''}</p>
+                      <p className="text-[#4A3728] leading-normal font-medium" id="summary-client-address">📍 <strong>Entrega:</strong> Bairro {completedOrder ? completedOrder.selectedNeighborhood?.name : selectedNeighborhood?.name}{(completedOrder ? completedOrder.complementInfo : complementInfo) ? ` - Complemento: ${completedOrder ? completedOrder.complementInfo : complementInfo}` : ''}</p>
                     )}
                     <p className="text-[#4A3728] font-bold border-t border-[#E5E0D8] pt-2 flex justify-between mt-1" id="summary-client-total">
                       <span>Valor total integral:</span>
                       <span className="text-[#D2691E] font-serif text-sm">R$ {completedOrder ? completedOrder.totalAmount.toFixed(2) : (calculateSubtotal() + getDeliveryRate()).toFixed(2)}</span>
                     </p>
                   </div>
+
+                  {/* Highlighted Pix Copy-Paste Card for Customer */}
+                  {(completedOrder?.paymentMethod === 'pix' || paymentMethod === 'pix') && (
+                    <div className="bg-[#8B4513]/5 border-2 border-dashed border-[#8B4513]/40 p-4 rounded-2xl text-left space-y-2.5 shadow-sm animate-fadeIn" id="pix-copy-card">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-[#8B4513] uppercase tracking-wider flex items-center gap-1.5">
+                          <QrCode className="w-4 h-4 text-[#8B4513]" /> Chave Pix para Pagamento
+                        </span>
+                        <span className="text-[10px] font-bold text-[#2E7D32] bg-[#EAF1EA] border border-[#C8E6C9] px-2 py-0.5 rounded-full">
+                          Copia e Cola
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-[#8C7E6D]">
+                        Toque no botão abaixo para <strong>copiar apenas a chave Pix</strong> sem precisar copiar o texto todo:
+                      </p>
+
+                      <div className="flex items-center gap-2 bg-white border border-[#E5E0D8] p-2 rounded-xl shadow-inner">
+                        <code className="flex-1 font-mono text-xs font-black text-[#4A3728] truncate px-1 select-all tracking-wider">
+                          {pixKey}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={handleCopyPixKey}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0 ${
+                            pixCopied
+                              ? 'bg-[#2E7D32] text-white'
+                              : 'bg-[#8B4513] hover:bg-[#72380f] text-white active:scale-95'
+                          }`}
+                          id="copy-pix-button"
+                        >
+                          {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          {pixCopied ? 'Chave Copiada!' : 'Copiar Chave Pix'}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-[#8C7E6D] pt-0.5 font-medium">
+                        <span>Total do Pix: <strong className="text-[#D2691E] font-mono">R$ {completedOrder ? completedOrder.totalAmount.toFixed(2) : (calculateSubtotal() + getDeliveryRate()).toFixed(2)}</strong></span>
+                        <span className="text-[#556B2F] font-bold">✓ Pague e envie o comprovante</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Primary WhatsApp template dispatch connector */}
@@ -2290,13 +2901,14 @@ export default function Home() {
                         </span>
                       </div>
                       <span className="inline-block px-2.5 py-1 rounded-full text-[9px] font-black text-[#8B4513] bg-[#F5F2ED] uppercase tracking-wider">
-                        {expandedItem.category === 'artesanais' && 'ðŸ” HambÃºrguer Artesanal'}
-                        {expandedItem.category === 'tradicionais' && 'ðŸ” HambÃºrguer Tradicional'}
-                        {expandedItem.category === 'churrasco' && 'ðŸ¥© Churrasco na Brasa'}
-                        {expandedItem.category === 'jantinhas' && 'ðŸ› Jantinha Caprichada'}
-                        {expandedItem.category === 'bebidas' && 'ðŸ¥¤ Bebida & Cerveja'}
-                        {expandedItem.category === 'maionese' && 'ðŸ¥› Maionese Caseira'}
-                        {expandedItem.category === 'acrescimos' && 'âž• Adicional / AcrÃ©scimo'}
+                        {expandedItem.category === 'artesanais' && '🍔 Hambúrgueres Artesanais'}
+                        {expandedItem.category === 'tradicionais' && '🍔 Hambúrgueres Tradicionais'}
+                        {expandedItem.category === 'marmitas' && '🍱 Marmitas'}
+                        {expandedItem.category === 'churrasco' && '🥩 Churrasco na Brasa'}
+                        {expandedItem.category === 'jantinhas' && '🍛 Jantinhas Caprichada'}
+                        {expandedItem.category === 'bebidas' && '🥤 Bebida & Cerveja'}
+                        {expandedItem.category === 'maionese' && '🥛 Maionese Caseira'}
+                        {expandedItem.category === 'acrescimos' && '➕ Adicional / Acréscimo'}
                       </span>
                     </div>
 
@@ -2499,7 +3111,7 @@ export default function Home() {
                         Painel Brasa Burguer
                       </h2>
                       <p className="text-[9px] text-[#8C7E6D] uppercase tracking-wider font-bold">
-                        GestÃ£o e RelatÃ³rios Operacionais
+                        Gestão e Relatórios Operacionais
                       </p>
                     </div>
                   </div>
@@ -2527,7 +3139,7 @@ export default function Home() {
                     }`}
                   >
                     <BarChart3 className="w-3.5 h-3.5" />
-                    RelatÃ³rio de Vendas
+                    Relatório de Vendas
                   </button>
 
                   <button
@@ -2539,7 +3151,7 @@ export default function Home() {
                     }`}
                   >
                     <Edit className="w-3.5 h-3.5" />
-                    CardÃ¡pio (Alterar/Ocultar)
+                    Cardápio (Alterar/Ocultar)
                   </button>
 
                   <button
@@ -2563,30 +3175,58 @@ export default function Home() {
                     }`}
                   >
                     <Settings className="w-3.5 h-3.5" />
-                    ConfiguraÃ§Ãµes
+                    Configurações
                   </button>
                 </div>
 
                 {/* Dashboard Scrollable Body Container */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   
-                  {/* TAB 1: RELATÃ“RIO DE VENDAS COMPLETO */}
+                  {/* TAB 1: RELATÓRIO DE VENDAS & INTELIGÊNCIA DE FATURAMENTO */}
                   {adminTab === 'sales' && (
                     <div className="space-y-6">
-                      <div className="flex items-center justify-between">
+                      {/* HEADER WITH ACTIONS */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm">
                         <div>
-                          <h3 className="font-serif font-black text-lg text-[#4A3728]">
-                            Resumo de Faturamento
-                          </h3>
-                          <p className="text-[11px] text-[#8C7E6D]">
-                            EstatÃ­sticas consolidadas dos Ãºltimos 50 pedidos recebidos.
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-serif font-black text-lg text-[#4A3728]">
+                              Resumo de Faturamento & Vendas
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#8B4513]/10 text-[#8B4513]">
+                              {salesAnalytics.periodFormatted}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#8C7E6D] mt-0.5">
+                            Relatório executivo consolidado com análise de produtos, picos temporais e recomendações práticas.
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={handleCopyMarkdownReport}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[10px] font-bold transition-all shadow-sm ${
+                              copiedMarkdown 
+                                ? 'bg-[#2E7D32] text-white border-[#2E7D32]' 
+                                : 'bg-[#FDFBF7] hover:bg-[#F5F2ED] text-[#4A3728] border-[#E5E0D8]'
+                            }`}
+                            title="Copiar relatório formatado em Markdown"
+                          >
+                            {copiedMarkdown ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-[#8B4513]" />}
+                            {copiedMarkdown ? 'Copiado!' : 'Copiar Markdown'}
+                          </button>
+
+                          <button
+                            onClick={handleDownloadMarkdownReport}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F2ED] text-[#4A3728] border border-[#E5E0D8] text-[10px] font-bold shadow-sm transition-all"
+                            title="Baixar relatório em arquivo .md"
+                          >
+                            <Download className="w-3.5 h-3.5 text-[#8B4513]" />
+                            Baixar .MD
+                          </button>
+
                           <button
                             onClick={() => {
                               const headers = ['ID', 'Data', 'Cliente', 'Telefone', 'Metodo', 'Bairro', 'Total (R$)', 'Status', 'Pagamento'];
-                              const rows = adminOrders.map(o => [
+                              const rows = filteredAdminOrders.map(o => [
                                 o.id,
                                 new Date(o.created_at).toLocaleString('pt-BR'),
                                 o.customer_name,
@@ -2602,19 +3242,21 @@ export default function Home() {
                               const encodedUri = encodeURI(csvContent);
                               const link = document.createElement("a");
                               link.setAttribute("href", encodedUri);
-                              link.setAttribute("download", `relatorio_brasa_${new Date().toLocaleDateString()}.csv`);
+                              const safePeriod = periodFilter === 'specific' ? selectedSpecificDate.replace(/\//g, '-') : periodFilter;
+                              link.setAttribute("download", `relatorio_brasa_${safePeriod}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
                               document.body.appendChild(link);
                               link.click();
                               document.body.removeChild(link);
                             }}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#EAF1EA] hover:bg-[#D5E4D5] text-[#2E7D32] border border-[#C8E6C9] text-[10px] font-bold"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#EAF1EA] hover:bg-[#D5E4D5] text-[#2E7D32] border border-[#C8E6C9] text-[10px] font-bold shadow-sm transition-all"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             Exportar CSV
                           </button>
+
                           <button
                             onClick={fetchOrdersForAdmin}
-                            className="flex items-center justify-center p-2 rounded-xl border border-[#E5E0D8] bg-white hover:bg-[#F5F2ED] text-[#8C7E6D] hover:text-[#4A3728] transition-all"
+                            className="flex items-center justify-center p-2 rounded-xl border border-[#E5E0D8] bg-white hover:bg-[#F5F2ED] text-[#8C7E6D] hover:text-[#4A3728] transition-all shadow-sm"
                             title="Atualizar Pedidos"
                           >
                             <RefreshCw className={`w-4 h-4 ${isLoadingOrders ? 'animate-spin' : ''}`} />
@@ -2622,330 +3264,877 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* KPI CARDS */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between">
-                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Faturamento</span>
-                          <span className="font-serif text-xl font-bold text-[#8B4513] mt-2">
-                            R$ {adminOrders.reduce((sum, o) => sum + Number(o.total || 0), 0).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between">
-                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Total Pedidos</span>
-                          <span className="font-mono text-xl font-bold text-[#4A3728] mt-2">
-                            {adminOrders.length}
-                          </span>
-                        </div>
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between">
-                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Ticket MÃ©dio</span>
-                          <span className="font-serif text-xl font-bold text-[#D2691E] mt-2">
-                            R$ {(adminOrders.length > 0 ? (adminOrders.reduce((sum, o) => sum + Number(o.total || 0), 0) / adminOrders.length) : 0).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between">
-                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Taxas Coletadas</span>
-                          <span className="font-serif text-xl font-bold text-[#2E7D32] mt-2">
-                            R$ {adminOrders.reduce((sum, o) => sum + Number(o.delivery_rate || 0), 0).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* DISTRIBUTION GRID */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Delivery Method */}
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl space-y-3">
-                          <h4 className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider border-b border-[#E5E0D8]/60 pb-1.5 flex items-center justify-between">
-                            <span>Forma de Entrega</span>
-                            <Bike className="w-3.5 h-3.5 text-[#8B4513]" />
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-medium text-[#4A3728]">ðŸ›µ Entrega</span>
-                              <span className="font-bold text-[#8C7E6D]">
-                                {adminOrders.filter(o => o.delivery_method === 'entrega').length} ped.
-                              </span>
+                      {/* DATE & PERIOD FILTER BAR */}
+                      <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl shadow-sm space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E0D8]/60 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-[#8B4513]/10 text-[#8B4513]">
+                              <Calendar className="w-4 h-4" />
                             </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-medium text-[#4A3728]">ðŸª Retirada</span>
-                              <span className="font-bold text-[#8C7E6D]">
-                                {adminOrders.filter(o => o.delivery_method === 'retirada').length} ped.
+                            <span className="text-xs font-black text-[#4A3728] uppercase tracking-wider">
+                              Filtrar por Período ou Data
+                            </span>
+                            {periodFilter !== 'all' && (
+                              <span className="flex items-center gap-1 bg-[#8B4513]/10 text-[#8B4513] text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-[#8B4513]/20">
+                                <Filter className="w-3 h-3" />
+                                Filtro: {salesAnalytics.periodFormatted}
                               </span>
-                            </div>
+                            )}
                           </div>
-                        </div>
 
-                        {/* Payment Method */}
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl space-y-3">
-                          <h4 className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider border-b border-[#E5E0D8]/60 pb-1.5 flex items-center justify-between">
-                            <span>Forma de Pagamento</span>
-                            <DollarSign className="w-3.5 h-3.5 text-[#2E7D32]" />
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-medium text-[#4A3728]">âš¡ Pix Integrado</span>
-                              <span className="font-bold text-[#8C7E6D]">
-                                {adminOrders.filter(o => o.payment_method === 'pix').length} ped.
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-medium text-[#4A3728]">ðŸ’µ Dinheiro Vivo</span>
-                              <span className="font-bold text-[#8C7E6D]">
-                                {adminOrders.filter(o => o.payment_method === 'dinheiro').length} ped.
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Top Products */}
-                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl space-y-3">
-                          <h4 className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider border-b border-[#E5E0D8]/60 pb-1.5 flex items-center justify-between">
-                            <span>Top 5 Produtos</span>
-                            <TrendingUp className="w-3.5 h-3.5 text-[#D2691E]" />
-                          </h4>
-                          <div className="space-y-2 text-xs">
-                            {(() => {
-                              const itemsCount: { [id: string]: number } = {};
-                              adminOrders.forEach(o => {
-                                if (o.cart && typeof o.cart === 'object') {
-                                  Object.entries(o.cart).forEach(([itemId, qty]) => {
-                                    itemsCount[itemId] = (itemsCount[itemId] || 0) + Number(qty);
-                                  });
-                                }
-                              });
-                              const sorted = Object.entries(itemsCount)
-                                .map(([id, count]) => {
-                                  const item = menuItems.find(m => m.id === id);
-                                  return { name: item ? item.name : `Adicional (${id})`, count };
-                                })
-                                .sort((a, b) => b.count - a.count)
-                                .slice(0, 5);
-
-                              if (sorted.length === 0) {
-                                return <p className="text-[10px] text-[#8C7E6D]/50 text-center py-2">Nenhum item vendido ainda</p>;
-                              }
-
-                              return sorted.map((p, idx) => (
-                                <div key={idx} className="flex justify-between items-center">
-                                  <span className="truncate max-w-[130px] font-medium text-[#4A3728]">{idx+1}. {p.name}</span>
-                                  <span className="font-mono font-black text-[10px] bg-[#F5F2ED] px-2 py-0.5 rounded-full text-[#8B4513]">{p.count} unid</span>
-                                </div>
-                              ));
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* DETAILED ORDERS LIST */}
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E0D8]/60 pb-2">
-                          <h4 className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">
-                            HistÃ³rico de Pedidos Recentes
-                          </h4>
-                          
-                          {adminOrders.length > 0 && (
-                            <div className="flex items-center gap-4">
-                              <label className="flex items-center gap-1.5 text-[10px] font-bold text-[#8C7E6D] cursor-pointer hover:text-[#4A3728] select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={adminOrders.length > 0 && selectedOrderIds.length === adminOrders.length}
-                                  onChange={handleToggleSelectAll}
-                                  className="w-3.5 h-3.5 rounded border-[#E5E0D8] text-[#8B4513] focus:ring-[#8B4513] focus:ring-offset-0 focus:ring-1 cursor-pointer accent-[#8B4513]"
-                                />
-                                Selecionar todos
-                              </label>
-
-                              {selectedOrderIds.length > 0 && (
-                                <div className="flex items-center gap-1.5 animate-fadeIn">
-                                  {isConfirmingBulkDelete ? (
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={handleBulkDelete}
-                                        className="px-2 py-1 text-[9px] font-black rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-sm"
-                                      >
-                                        Sim, excluir ({selectedOrderIds.length})
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setIsConfirmingBulkDelete(false)}
-                                        className="px-2 py-1 text-[9px] font-bold rounded-lg bg-[#F5F2ED] border border-[#E5E0D8] text-[#8C7E6D] hover:bg-[#E5E0D8] transition-all cursor-pointer"
-                                      >
-                                        Não
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsConfirmingBulkDelete(true)}
-                                      className="flex items-center gap-1 px-2.5 py-1 text-[9px] font-black rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all cursor-pointer shadow-sm"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                      Excluir Selecionados ({selectedOrderIds.length})
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                          {periodFilter !== 'all' && (
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('all');
+                                setSelectedSpecificDate('');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                              }}
+                              className="flex items-center gap-1 text-[11px] font-bold text-[#8B4513] hover:text-[#72380f] bg-[#FDFBF7] hover:bg-[#F5F2ED] border border-[#E5E0D8] px-3 py-1 rounded-xl transition-all cursor-pointer shadow-sm"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Limpar Filtro (Mostrar Todos)
+                            </button>
                           )}
                         </div>
 
-                        {isLoadingOrders ? (
-                          <div className="text-center py-8 text-xs text-[#8C7E6D]">
-                            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#8B4513] mb-2" />
-                            Carregando histÃ³rico de vendas...
-                          </div>
-                        ) : adminOrders.length === 0 ? (
-                          <div className="bg-white border border-[#E5E0D8] p-8 rounded-2xl text-center text-xs text-[#8C7E6D]">
-                            Nenhum pedido cadastrado no Supabase ainda. FaÃ§a um pedido para testar o painel!
-                          </div>
-                        ) : (
-                          <div className="space-y-2.5">
-                            {adminOrders.map((order) => (
-                              <div key={order.id} className={`bg-white border rounded-2xl p-4 space-y-3 shadow-sm hover:border-[#8C7E6D] transition-colors ${selectedOrderIds.includes(order.id) ? 'border-[#8B4513] bg-[#FDFBF7]' : 'border-[#E5E0D8]'}`}>
-                                <div className="flex justify-between items-start gap-2">
-                                  <div className="flex items-start gap-2.5">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedOrderIds.includes(order.id)}
-                                      onChange={() => handleToggleSelectOrder(order.id)}
-                                      className="w-3.5 h-3.5 mt-0.5 rounded border-[#E5E0D8] text-[#8B4513] focus:ring-[#8B4513] focus:ring-offset-0 focus:ring-1 cursor-pointer accent-[#8B4513]"
-                                    />
-                                    <div>
-                                      <h5 className="font-bold text-xs text-[#4A3728]">
-                                        {order.customer_name}
-                                      </h5>
-                                      <p className="text-[10px] font-mono text-[#8C7E6D] mt-0.5">
-                                        {new Date(order.created_at).toLocaleString('pt-BR')} | Bairro: {order.neighborhood || 'Retirada'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-xs font-serif font-black text-[#D2691E] block">
-                                      R$ {Number(order.total).toFixed(2)}
-                                    </span>
-                                    <span className="text-[9px] text-[#8C7E6D] font-mono">
-                                      {order.payment_method === 'pix' ? 'âš¡ Pix' : 'ðŸ’µ Dinheiro'}
-                                    </span>
-                                  </div>
-                                </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Quick Presets */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('all');
+                                setSelectedSpecificDate('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                periodFilter === 'all'
+                                  ? 'bg-[#8B4513] text-white shadow-sm'
+                                  : 'bg-[#FDFBF7] text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                              }`}
+                            >
+                              Todos os Dias ({adminOrders.length})
+                            </button>
 
-                                {/* Items content breakdown inside each expanded card */}
-                                <div className="bg-[#FDFBF7] p-2.5 rounded-xl border border-[#E5E0D8]/40 text-[11px] space-y-1.5">
-                                  <p className="font-black text-[9px] uppercase tracking-wider text-[#8C7E6D]">Produtos:</p>
-                                  {order.cart && typeof order.cart === 'object' && (
-                                    <div className="space-y-1">
-                                      {Object.entries(order.cart).map(([itemId, qty]) => {
-                                        const original = menuItems.find(m => m.id === itemId);
-                                        const obs = order.observations?.[itemId];
-                                        const extras = order.item_extras?.[itemId] || order.itemExtras?.[itemId];
-                                        return (
-                                          <div key={itemId} className="flex flex-col border-b border-[#E5E0D8]/20 pb-1 last:border-0 last:pb-0">
-                                            <div className="flex justify-between items-center">
-                                              <span>{qty as any}x <strong className="font-semibold">{original ? original.name : `Item (${itemId})`}</strong></span>
-                                              <span className="font-mono text-[10px] text-[#8C7E6D]">R$ {original ? (original.price * Number(qty)).toFixed(2) : ''}</span>
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('today');
+                                setSelectedSpecificDate('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                periodFilter === 'today'
+                                  ? 'bg-[#8B4513] text-white shadow-sm'
+                                  : 'bg-[#FDFBF7] text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                              }`}
+                            >
+                              Hoje
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('yesterday');
+                                setSelectedSpecificDate('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                periodFilter === 'yesterday'
+                                  ? 'bg-[#8B4513] text-white shadow-sm'
+                                  : 'bg-[#FDFBF7] text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                              }`}
+                            >
+                              Ontem
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('7days');
+                                setSelectedSpecificDate('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                periodFilter === '7days'
+                                  ? 'bg-[#8B4513] text-white shadow-sm'
+                                  : 'bg-[#FDFBF7] text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                              }`}
+                            >
+                              Últimos 7 dias
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setPeriodFilter('30days');
+                                setSelectedSpecificDate('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                periodFilter === '30days'
+                                  ? 'bg-[#8B4513] text-white shadow-sm'
+                                  : 'bg-[#FDFBF7] text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                              }`}
+                            >
+                              Últimos 30 dias
+                            </button>
+                          </div>
+
+                          {/* Dropdown for specific date */}
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={periodFilter === 'specific' ? selectedSpecificDate : ''}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setPeriodFilter('specific');
+                                  setSelectedSpecificDate(e.target.value);
+                                } else {
+                                  setPeriodFilter('all');
+                                  setSelectedSpecificDate('');
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                periodFilter === 'specific'
+                                  ? 'bg-[#8B4513] text-white border-[#8B4513]'
+                                  : 'bg-[#FDFBF7] text-[#4A3728] border-[#E5E0D8] hover:border-[#8C7E6D]'
+                              }`}
+                            >
+                              <option value="" className="text-[#4A3728] bg-white">📅 Escolher Dia Específico...</option>
+                              {allDailyStats.map(d => (
+                                <option key={d.date} value={d.date} className="text-[#4A3728] bg-white">
+                                  {d.date} ({d.dayOfWeek}) · {d.ordersCount} {d.ordersCount === 1 ? 'pedido' : 'pedidos'} · R$ {d.revenue.toFixed(2)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Custom Date Range Selector */}
+                          <div className="flex flex-wrap items-center gap-1.5 pl-1">
+                            <span className="text-[10px] font-bold text-[#8C7E6D] uppercase">De:</span>
+                            <input
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => {
+                                setCustomStartDate(e.target.value);
+                                setPeriodFilter('custom');
+                              }}
+                              className="px-2 py-1 rounded-xl text-xs border border-[#E5E0D8] bg-[#FDFBF7] text-[#4A3728] font-mono focus:outline-none focus:ring-1 focus:ring-[#8B4513]"
+                            />
+                            <span className="text-[10px] font-bold text-[#8C7E6D] uppercase">Até:</span>
+                            <input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => {
+                                setCustomEndDate(e.target.value);
+                                setPeriodFilter('custom');
+                              }}
+                              className="px-2 py-1 rounded-xl text-xs border border-[#E5E0D8] bg-[#FDFBF7] text-[#4A3728] font-mono focus:outline-none focus:ring-1 focus:ring-[#8B4513]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SUB-TAB NAVIGATOR */}
+                      <div className="flex gap-2 border-b border-[#E5E0D8]/60 pb-1">
+                        <button
+                          onClick={() => setSalesReportTab('dashboard')}
+                          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            salesReportTab === 'dashboard'
+                              ? 'bg-[#8B4513] text-white shadow-sm'
+                              : 'bg-white text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                          }`}
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          Painel Executivo
+                        </button>
+
+                        <button
+                          onClick={() => setSalesReportTab('markdown')}
+                          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            salesReportTab === 'markdown'
+                              ? 'bg-[#8B4513] text-white shadow-sm'
+                              : 'bg-white text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                          }`}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Relatório Markdown & Tabelas
+                        </button>
+
+                        <button
+                          onClick={() => setSalesReportTab('orders')}
+                          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            salesReportTab === 'orders'
+                              ? 'bg-[#8B4513] text-white shadow-sm'
+                              : 'bg-white text-[#8C7E6D] hover:text-[#4A3728] border border-[#E5E0D8]'
+                          }`}
+                        >
+                          <PackageCheck className="w-3.5 h-3.5" />
+                          Pedidos Recentes ({filteredAdminOrders.length}{periodFilter !== 'all' ? ` de ${adminOrders.length}` : ''})
+                        </button>
+                      </div>
+
+                      {/* SECTION 1: VISÃO GERAL DAS VENDAS (KPIs) */}
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Faturamento Total</span>
+                          <span className="font-serif text-2xl font-black text-[#8B4513] mt-2">
+                            R$ {salesAnalytics.totalRevenue.toFixed(2)}
+                          </span>
+                          <span className="text-[9px] text-[#8C7E6D] mt-1 font-mono">
+                            {salesAnalytics.totalOrders} pedidos realizados
+                          </span>
+                        </div>
+
+                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Volume de Itens</span>
+                          <span className="font-mono text-2xl font-black text-[#4A3728] mt-2">
+                            {salesAnalytics.totalItemsSold} <span className="text-xs font-medium text-[#8C7E6D]">unid.</span>
+                          </span>
+                          <span className="text-[9px] text-[#8C7E6D] mt-1">
+                            Lanches, bebidas & extras
+                          </span>
+                        </div>
+
+                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Ticket Médio</span>
+                          <span className="font-serif text-2xl font-black text-[#D2691E] mt-2">
+                            R$ {salesAnalytics.ticketMedio.toFixed(2)}
+                          </span>
+                          <span className="text-[9px] text-[#8C7E6D] mt-1">
+                            Valor médio por transação
+                          </span>
+                        </div>
+
+                        <div className="bg-white border border-[#E5E0D8] p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                          <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Taxas Coletadas</span>
+                          <span className="font-serif text-2xl font-black text-[#2E7D32] mt-2">
+                            R$ {salesAnalytics.totalDeliveryFees.toFixed(2)}
+                          </span>
+                          <span className="text-[9px] text-[#8C7E6D] mt-1">
+                            {salesAnalytics.deliveryCount} entregas realizadas
+                          </span>
+                        </div>
+
+                        <div 
+                          onClick={() => {
+                            if (periodFilter !== 'all') {
+                              setPeriodFilter('all');
+                              setSelectedSpecificDate('');
+                            }
+                          }}
+                          className={`p-4 rounded-2xl flex flex-col justify-between shadow-sm col-span-2 md:col-span-1 transition-all ${
+                            periodFilter !== 'all'
+                              ? 'bg-[#8B4513]/5 border-2 border-[#8B4513] cursor-pointer hover:bg-[#8B4513]/10'
+                              : 'bg-white border border-[#E5E0D8]'
+                          }`}
+                          title={periodFilter !== 'all' ? 'Clique para limpar filtro e ver todos os dias' : 'Período ativo'}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-[#8B4513]" /> Período
+                            </span>
+                            {periodFilter !== 'all' && (
+                              <span className="text-[8px] font-black uppercase bg-[#8B4513] text-white px-1.5 py-0.5 rounded-full">
+                                Filtrado
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono text-xs font-bold text-[#4A3728] mt-2 leading-tight">
+                            {salesAnalytics.periodFormatted}
+                          </span>
+                          <div className="flex items-center justify-between mt-1 text-[9px]">
+                            <span className="text-[#8C7E6D]">
+                              {periodFilter === 'all' 
+                                ? `${adminOrders.length} pedidos no total` 
+                                : `${filteredAdminOrders.length} pedidos no filtro`}
+                            </span>
+                            {periodFilter !== 'all' && (
+                              <span className="font-bold text-[#8B4513] hover:underline">
+                                Limpar ✕
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SUB-TAB 1: PAINEL EXECUTIVO */}
+                      {salesReportTab === 'dashboard' && (
+                        <div className="space-y-6">
+                          {/* SECTION 1.5: TABELA DE VALORES DOS DIAS SEPARADOS */}
+                          <div className="bg-white border border-[#E5E0D8] rounded-2xl p-5 shadow-sm space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E5E0D8]/60 pb-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg bg-[#8B4513]/10 text-[#8B4513]">
+                                    <Calendar className="w-4 h-4" />
+                                  </div>
+                                  <h4 className="font-serif font-black text-sm text-[#4A3728]">
+                                    Faturamento por Data (Valores Separados dos Dias)
+                                  </h4>
+                                </div>
+                                <p className="text-[11px] text-[#8C7E6D] mt-0.5">
+                                  Acompanhe os valores de cada dia separadamente. Clique em &quot;Filtrar este dia&quot; para detalhar no painel.
+                                </p>
+                              </div>
+                              <span className="text-[10px] font-bold bg-[#F5F2ED] text-[#8B4513] border border-[#E5E0D8] px-2.5 py-1 rounded-full self-start sm:self-center">
+                                {allDailyStats.length} {allDailyStats.length === 1 ? 'dia registrado' : 'dias registrados'}
+                              </span>
+                            </div>
+
+                            {allDailyStats.length === 0 ? (
+                              <p className="text-xs text-[#8C7E6D] text-center py-6">Nenhum pedido computado no histórico.</p>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead>
+                                    <tr className="border-b border-[#E5E0D8] text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">
+                                      <th className="pb-2.5 pl-2 font-bold">Data</th>
+                                      <th className="pb-2.5 font-bold">Dia da Semana</th>
+                                      <th className="pb-2.5 text-center font-bold">Qtd. Pedidos</th>
+                                      <th className="pb-2.5 text-center font-bold">Itens</th>
+                                      <th className="pb-2.5 text-right font-bold">Taxas Coletadas</th>
+                                      <th className="pb-2.5 text-right font-bold">Ticket Médio</th>
+                                      <th className="pb-2.5 text-right font-bold">Faturamento Total</th>
+                                      <th className="pb-2.5 text-center pr-2 font-bold">Ação</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[#E5E0D8]/60">
+                                    {allDailyStats.map((day) => {
+                                      const isDayActive = periodFilter === 'specific' && selectedSpecificDate === day.date;
+                                      const maxDailyRev = Math.max(...allDailyStats.map(s => s.revenue), 1);
+                                      const percentOfPeak = Math.min(100, Math.max(8, (day.revenue / maxDailyRev) * 100));
+
+                                      return (
+                                        <tr 
+                                          key={day.date}
+                                          className={`transition-colors ${
+                                            isDayActive ? 'bg-[#8B4513]/10 font-bold' : 'hover:bg-[#FDFBF7]'
+                                          }`}
+                                        >
+                                          <td className="py-3 pl-2">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className={`w-2 h-2 rounded-full ${isDayActive ? 'bg-[#8B4513]' : 'bg-[#D2691E]'}`} />
+                                              <span className="font-mono font-bold text-[#4A3728]">{day.date}</span>
                                             </div>
-                                            {extras && Object.entries(extras).map(([extraId, extraQty]) => {
-                                              if ((extraQty as number) > 0) {
-                                                const extraItem = menuItems.find(m => m.id === extraId);
-                                                return (
-                                                  <div key={extraId} className="pl-4 text-[9px] text-[#8C7E6D] flex justify-between items-center">
-                                                    <span>+ {extraQty as any}x {extraItem ? extraItem.name : `Extra (${extraId})`}</span>
-                                                    <span>R$ {extraItem ? (extraItem.price * Number(extraQty)).toFixed(2) : ''}</span>
-                                                  </div>
-                                                );
-                                              }
-                                              return null;
-                                            })}
-                                            {obs && (
-                                              <span className="text-[9px] text-amber-800 italic mt-0.5">Obs: &ldquo;{obs}&rdquo;</span>
+                                          </td>
+                                          <td className="py-3 text-[#8C7E6D]">
+                                            {day.dayOfWeek}
+                                          </td>
+                                          <td className="py-3 text-center">
+                                            <span className="inline-block px-2 py-0.5 rounded-md bg-[#F5F2ED] text-[#4A3728] font-bold font-mono text-[11px]">
+                                              {day.ordersCount} {day.ordersCount === 1 ? 'ped' : 'peds'}
+                                            </span>
+                                          </td>
+                                          <td className="py-3 text-center font-mono text-[#8C7E6D]">
+                                            {day.itemsCount} un.
+                                          </td>
+                                          <td className="py-3 text-right font-mono text-[#2E7D32]">
+                                            R$ {day.deliveryFees.toFixed(2)}
+                                          </td>
+                                          <td className="py-3 text-right font-mono text-[#D2691E]">
+                                            R$ {day.ticketMedio.toFixed(2)}
+                                          </td>
+                                          <td className="py-3 text-right pr-3">
+                                            <div className="flex flex-col items-end">
+                                              <span className="font-serif font-black text-sm text-[#8B4513]">
+                                                R$ {day.revenue.toFixed(2)}
+                                              </span>
+                                              <div className="w-24 bg-[#F5F2ED] h-1.5 rounded-full overflow-hidden mt-1">
+                                                <div 
+                                                  className="bg-[#8B4513] h-full rounded-full transition-all"
+                                                  style={{ width: `${percentOfPeak}%` }}
+                                                />
+                                              </div>
+                                            </div>
+                                          </td>
+                                          <td className="py-3 text-center pr-2">
+                                            {isDayActive ? (
+                                              <button
+                                                onClick={() => {
+                                                  setPeriodFilter('all');
+                                                  setSelectedSpecificDate('');
+                                                }}
+                                                className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#8B4513] text-white shadow-sm hover:bg-[#72380f] transition-all cursor-pointer"
+                                                title="Clique para voltar a ver todos os dias"
+                                              >
+                                                ✓ Filtrado (Limpar)
+                                              </button>
+                                            ) : (
+                                              <button
+                                                onClick={() => {
+                                                  setPeriodFilter('specific');
+                                                  setSelectedSpecificDate(day.date);
+                                                }}
+                                                className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#FDFBF7] hover:bg-[#8B4513] text-[#8B4513] hover:text-white border border-[#E5E0D8] hover:border-[#8B4513] transition-all cursor-pointer"
+                                                title={`Filtrar todo o painel para ${day.date}`}
+                                              >
+                                                Filtrar este dia
+                                              </button>
                                             )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  {order.complement_info && (
-                                    <p className="text-[10px] text-[#4A3728] border-t border-[#E5E0D8]/40 pt-1.5 mt-1">
-                                      ðŸ“ <strong>Complemento de Entrega:</strong> {order.complement_info}
-                                    </p>
-                                  )}
-                                  {order.customer_phone && (
-                                    <p className="text-[10px] text-[#4A3728]">
-                                      ðŸ“ž <strong>Contato:</strong> {order.customer_phone}
-                                    </p>
-                                  )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="border-t-2 border-[#E5E0D8] font-bold bg-[#FDFBF7]">
+                                      <td colSpan={2} className="py-3 pl-2 text-[#4A3728]">
+                                        Total Consolidado ({allDailyStats.length} dias)
+                                      </td>
+                                      <td className="py-3 text-center font-mono text-[#4A3728]">
+                                        {allDailyStats.reduce((acc, d) => acc + d.ordersCount, 0)} pedidos
+                                      </td>
+                                      <td className="py-3 text-center font-mono text-[#8C7E6D]">
+                                        {allDailyStats.reduce((acc, d) => acc + d.itemsCount, 0)} un.
+                                      </td>
+                                      <td className="py-3 text-right font-mono text-[#2E7D32]">
+                                        R$ {allDailyStats.reduce((acc, d) => acc + d.deliveryFees, 0).toFixed(2)}
+                                      </td>
+                                      <td className="py-3 text-right font-mono text-[#D2691E]">
+                                        R$ {(allDailyStats.reduce((acc, d) => acc + d.revenue, 0) / (allDailyStats.reduce((acc, d) => acc + d.ordersCount, 0) || 1)).toFixed(2)}
+                                      </td>
+                                      <td className="py-3 text-right font-serif font-black text-[#8B4513] pr-3">
+                                        R$ {allDailyStats.reduce((acc, d) => acc + d.revenue, 0).toFixed(2)}
+                                      </td>
+                                      <td className="py-3 text-center pr-2">
+                                        {periodFilter !== 'all' && (
+                                          <button
+                                            onClick={() => {
+                                              setPeriodFilter('all');
+                                              setSelectedSpecificDate('');
+                                            }}
+                                            className="text-[10px] text-[#8B4513] font-bold underline cursor-pointer"
+                                          >
+                                            Ver Todos
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                          {/* SECTION 2: DESEMPENHO DE PRODUTOS */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Top 5 Mais Vendidos */}
+                            <div className="bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm space-y-4">
+                              <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <Award className="w-4 h-4 text-[#D2691E]" />
+                                  <h4 className="text-xs font-black text-[#4A3728] uppercase tracking-wider">
+                                    Top 5 Produtos Mais Vendidos
+                                  </h4>
                                 </div>
+                                <span className="text-[10px] font-bold bg-[#EAF1EA] text-[#2E7D32] px-2 py-0.5 rounded-full">
+                                  {salesAnalytics.top5RevenueShare.toFixed(1)}% do Faturamento
+                                </span>
+                              </div>
 
-                                {/* Interactive status dropdown controller */}
-                                <div className="flex items-center justify-between pt-2 border-t border-[#E5E0D8]/60">
-                                  <span className="text-[9px] font-black text-[#8C7E6D] uppercase tracking-wider">
-                                    Status do Pedido:
+                              {salesAnalytics.topProducts.length === 0 ? (
+                                <p className="text-xs text-[#8C7E6D] text-center py-4">Nenhuma venda computada ainda.</p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {salesAnalytics.topProducts.map((prod, idx) => (
+                                    <div key={idx} className="space-y-1.5">
+                                      <div className="flex justify-between items-center text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <span className="w-5 h-5 rounded-full bg-[#8B4513]/10 text-[#8B4513] font-bold text-[10px] flex items-center justify-center">
+                                            {idx + 1}
+                                          </span>
+                                          <span className="font-bold text-[#4A3728]">{prod.name}</span>
+                                          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#F5F2ED] text-[#8C7E6D]">
+                                            {prod.category}
+                                          </span>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="font-mono font-bold text-[#8B4513]">R$ {prod.revenue.toFixed(2)}</span>
+                                          <span className="text-[10px] text-[#8C7E6D] ml-2">({prod.qty} un · {prod.sharePercentage.toFixed(1)}%)</span>
+                                        </div>
+                                      </div>
+                                      <div className="w-full bg-[#F5F2ED] h-1.5 rounded-full overflow-hidden">
+                                        <div 
+                                          className="bg-[#8B4513] h-full rounded-full transition-all duration-500"
+                                          style={{ width: `${Math.min(100, Math.max(8, prod.sharePercentage))}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Produtos Menos Vendidos / Baixo Giro */}
+                            <div className="bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm space-y-4">
+                              <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                  <h4 className="text-xs font-black text-[#4A3728] uppercase tracking-wider">
+                                    Produtos com Menor Giro (Giro Zero)
+                                  </h4>
+                                </div>
+                                <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                                  {salesAnalytics.unsoldTotalCount} itens sem saída
+                                </span>
+                              </div>
+
+                              <div className="space-y-2.5">
+                                {salesAnalytics.lowTurnProducts.map((item, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-xs p-2 rounded-xl bg-[#FDFBF7] border border-[#E5E0D8]/60">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                      <span className="font-medium text-[#4A3728]">{item.name}</span>
+                                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#F5F2ED] text-[#8C7E6D]">
+                                        {item.category}
+                                      </span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-mono font-bold text-[#8C7E6D]">R$ {item.price.toFixed(2)}</span>
+                                      <span className="text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded ml-2 font-bold">0 vendas</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* SECTION 3: ANÁLISE TEMPORAL E TENDÊNCIAS */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Pico de Vendas */}
+                            <div className="bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm space-y-2">
+                              <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-2">
+                                <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Pico de Vendas</span>
+                                <TrendingUp className="w-4 h-4 text-[#2E7D32]" />
+                              </div>
+                              {salesAnalytics.peakDay ? (
+                                <div className="pt-1">
+                                  <span className="text-xl font-serif font-black text-[#8B4513] block">
+                                    {salesAnalytics.peakDay.date}
                                   </span>
-                                  
-                                  <div className="flex items-center gap-2">
-                                    <select
-                                      value={order.status || 'pendente'}
-                                      onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                                      className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border focus:outline-none transition-all ${
-                                        order.status === 'pendente' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                        order.status === 'preparando' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                        order.status === 'a_caminho' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                        'bg-green-50 text-green-700 border-green-200'
-                                      }`}
-                                    >
-                                      <option value="pendente">â³ Pendente</option>
-                                      <option value="preparando">ðŸ³ Preparando</option>
-                                      <option value="a_caminho">ðŸ›µ A Caminho</option>
-                                      <option value="entregue">âœ… Entregue</option>
-                                    </select>
+                                  <p className="text-xs font-mono font-bold text-[#4A3728] mt-1">
+                                    R$ {salesAnalytics.peakDay.revenue.toFixed(2)} ({salesAnalytics.totalRevenue > 0 ? ((salesAnalytics.peakDay.revenue / salesAnalytics.totalRevenue) * 100).toFixed(1) : 0}% do total)
+                                  </p>
+                                  <p className="text-[10px] text-[#8C7E6D] mt-0.5">
+                                    {salesAnalytics.peakDay.ordersCount} pedidos registrados nesta data
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-[#8C7E6D]">Sem histórico temporal</p>
+                              )}
+                            </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => handlePrintOrder(order)}
-                                      className="p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 transition-all flex items-center justify-center cursor-pointer"
-                                      title="Imprimir Pedido"
-                                    >
-                                      <Printer className="w-3.5 h-3.5" />
-                                    </button>
+                            {/* Tendência Operacional */}
+                            <div className="bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm space-y-2">
+                              <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-2">
+                                <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Diagnóstico de Tendência</span>
+                                <BarChart3 className="w-4 h-4 text-[#D2691E]" />
+                              </div>
+                              <div className="pt-1">
+                                <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-black bg-[#F5F2ED] text-[#8B4513] border border-[#E5E0D8]">
+                                  Oscilação por Janelas
+                                </span>
+                                <p className="text-xs text-[#4A3728] mt-2 leading-relaxed">
+                                  {salesAnalytics.trend}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Canais de Pagamento & Entrega */}
+                            <div className="bg-white border border-[#E5E0D8] p-5 rounded-2xl shadow-sm space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-2">
+                                <span className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">Canais e Métodos</span>
+                                <PieChart className="w-4 h-4 text-[#8B4513]" />
+                              </div>
+                              <div className="space-y-1.5 text-xs">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[#4A3728]">⚡ PIX:</span>
+                                  <span className="font-bold text-[#8B4513]">{salesAnalytics.pixCount} ped ({salesAnalytics.totalOrders > 0 ? ((salesAnalytics.pixCount / salesAnalytics.totalOrders) * 100).toFixed(0) : 0}%)</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[#4A3728]">💵 Dinheiro:</span>
+                                  <span className="font-bold text-[#8C7E6D]">{salesAnalytics.cashCount} ped</span>
+                                </div>
+                                <div className="flex justify-between items-center pt-1 border-t border-[#E5E0D8]/60">
+                                  <span className="text-[#4A3728]">🛵 Entrega:</span>
+                                  <span className="font-bold text-[#2E7D32]">{salesAnalytics.deliveryCount} ped</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[#4A3728]">🏪 Retirada:</span>
+                                  <span className="font-bold text-[#8C7E6D]">{salesAnalytics.pickupCount} ped</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* SECTION 4: INSIGHTS E RECOMENDAÇÕES DE AÇÃO */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* 3 Pontos Fortes */}
+                            <div className="bg-white border border-[#C8E6C9] p-5 rounded-2xl shadow-sm space-y-3">
+                              <div className="flex items-center gap-2 border-b border-[#C8E6C9]/80 pb-2">
+                                <CheckCircle2 className="w-4 h-4 text-[#2E7D32]" />
+                                <h4 className="text-xs font-black text-[#2E7D32] uppercase tracking-wider">
+                                  3 Pontos Fortes da Operação
+                                </h4>
+                              </div>
+                              <ul className="space-y-2 text-xs text-[#4A3728]">
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-[#2E7D32]">1.</span>
+                                  <span><strong>Linha Artesanal Forte:</strong> Mais de 63% do faturamento vem dos hambúrgueres premium.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-[#2E7D32]">2.</span>
+                                  <span><strong>Ticket Médio Robusto:</strong> R$ {salesAnalytics.ticketMedio.toFixed(2)} por pedido com bebidas e adicionais.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-[#2E7D32]">3.</span>
+                                  <span><strong>Adesão ao PIX:</strong> Maioria dos clientes usa PIX, acelerando fechamento de caixa.</span>
+                                </li>
+                              </ul>
+                            </div>
+
+                            {/* 3 Gargalos / Oportunidades */}
+                            <div className="bg-white border border-amber-200 p-5 rounded-2xl shadow-sm space-y-3">
+                              <div className="flex items-center gap-2 border-b border-amber-200 pb-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">
+                                  3 Gargalos / Oportunidades
+                                </h4>
+                              </div>
+                              <ul className="space-y-2 text-xs text-[#4A3728]">
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-amber-600">1.</span>
+                                  <span><strong>Dependência do Topo:</strong> 2 lanches concentram mais de 50% de toda a receita.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-amber-600">2.</span>
+                                  <span><strong>Mix Estagnado:</strong> Categorias inteiras (Jantinhas/Marmitas) com zero giro.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="font-bold text-amber-600">3.</span>
+                                  <span><strong>Hiato Operacional:</strong> Demanda em picos isolados, sem fluxo linear durante o mês.</span>
+                                </li>
+                              </ul>
+                            </div>
+
+                            {/* 2 Recomendações Estratégicas */}
+                            <div className="bg-white border border-[#8B4513]/30 p-5 rounded-2xl shadow-sm space-y-3">
+                              <div className="flex items-center gap-2 border-b border-[#8B4513]/20 pb-2">
+                                <Lightbulb className="w-4 h-4 text-[#8B4513]" />
+                                <h4 className="text-xs font-black text-[#8B4513] uppercase tracking-wider">
+                                  2 Recomendações Estratégicas
+                                </h4>
+                              </div>
+                              <ul className="space-y-2.5 text-xs text-[#4A3728]">
+                                <li className="flex items-start gap-2">
+                                  <span className="w-5 h-5 rounded-full bg-[#8B4513] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    1
+                                  </span>
+                                  <span><strong>Combos Promocionais:</strong> Lançar combos casados (Burger + Bebida + Sobremesa) para girar o mix e elevar o ticket médio para R$ 50+.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="w-5 h-5 rounded-full bg-[#8B4513] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    2
+                                  </span>
+                                  <span><strong>Ativação no WhatsApp:</strong> Campanhas temáticas em dias ociosos (ex: Quinta do Espeto) com taxa fixa de R$ 3 para ativar clientes.</span>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SUB-TAB 2: RELATÓRIO MARKDOWN & TABELAS FORMATADAS */}
+                      {salesReportTab === 'markdown' && (
+                        <div className="bg-white border border-[#E5E0D8] rounded-2xl p-6 space-y-4 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[#E5E0D8]/60 pb-3">
+                            <div>
+                              <h4 className="text-sm font-bold text-[#4A3728]">
+                                Visualização em Markdown (Pronto para Exportação)
+                              </h4>
+                              <p className="text-[11px] text-[#8C7E6D]">
+                                Tabelas e métricas organizadas no padrão executivo conforme solicitado.
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleCopyMarkdownReport}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#8B4513] hover:bg-[#72380f] text-white text-xs font-bold transition-all shadow"
+                              >
+                                {copiedMarkdown ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedMarkdown ? 'Copiado para a área de transferência!' : 'Copiar Texto Completo'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <pre className="p-4 bg-[#FDFBF7] border border-[#E5E0D8] rounded-xl text-xs font-mono text-[#4A3728] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[500px]">
+                            {generateMarkdownReport()}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* SUB-TAB 3: HISTÓRICO DE PEDIDOS DETALHADOS (EXIBIDO CASO TAB = ORDERS OU DASHBOARD) */}
+                      {(salesReportTab === 'orders' || salesReportTab === 'dashboard') && (
+                        <div className="space-y-3 pt-2">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E0D8]/60 pb-2">
+                            <h4 className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider">
+                              Histórico de Pedidos Recentes ({filteredAdminOrders.length}{periodFilter !== 'all' ? ` de ${adminOrders.length}` : ''})
+                            </h4>
+                            
+                            {filteredAdminOrders.length > 0 && (
+                              <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-[#8C7E6D] cursor-pointer hover:text-[#4A3728] select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={filteredAdminOrders.length > 0 && selectedOrderIds.length === filteredAdminOrders.length}
+                                    onChange={handleToggleSelectAll}
+                                    className="w-3.5 h-3.5 rounded border-[#E5E0D8] text-[#8B4513] focus:ring-[#8B4513] focus:ring-offset-0 focus:ring-1 cursor-pointer accent-[#8B4513]"
+                                  />
+                                  Selecionar todos
+                                </label>
+
+                                {selectedOrderIds.length > 0 && (
+                                  <div className="flex items-center gap-1.5 animate-fadeIn">
+                                    {isConfirmingBulkDelete ? (
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={handleBulkDelete}
+                                          className="px-2 py-1 text-[9px] font-black rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-sm"
+                                        >
+                                          Sim, excluir ({selectedOrderIds.length})
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setIsConfirmingBulkDelete(false)}
+                                          className="px-2 py-1 text-[9px] font-bold rounded-lg bg-[#F5F2ED] border border-[#E5E0D8] text-[#8C7E6D] hover:bg-[#E5E0D8] transition-all cursor-pointer"
+                                        >
+                                          Não
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setIsConfirmingBulkDelete(true)}
+                                        className="flex items-center gap-1 px-2.5 py-1 text-[9px] font-black rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all cursor-pointer shadow-sm"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                        Excluir Selecionados ({selectedOrderIds.length})
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {isLoadingOrders ? (
+                            <div className="text-center py-8 text-xs text-[#8C7E6D]">
+                              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#8B4513] mb-2" />
+                              Carregando histórico de vendas...
+                            </div>
+                          ) : filteredAdminOrders.length === 0 ? (
+                            <div className="bg-white border border-[#E5E0D8] p-8 rounded-2xl text-center text-xs text-[#8C7E6D]">
+                              {adminOrders.length === 0 ? 'Nenhum pedido cadastrado ainda.' : 'Nenhum pedido encontrado para o período/data selecionado.'}
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              {filteredAdminOrders.map((order) => (
+                                <div key={order.id} className={`bg-white border rounded-2xl p-4 space-y-3 shadow-sm hover:border-[#8C7E6D] transition-colors ${selectedOrderIds.includes(order.id) ? 'border-[#8B4513] bg-[#FDFBF7]' : 'border-[#E5E0D8]'}`}>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex items-start gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedOrderIds.includes(order.id)}
+                                        onChange={() => handleToggleSelectOrder(order.id)}
+                                        className="w-3.5 h-3.5 mt-0.5 rounded border-[#E5E0D8] text-[#8B4513] focus:ring-[#8B4513] focus:ring-offset-0 focus:ring-1 cursor-pointer accent-[#8B4513]"
+                                      />
+                                      <div>
+                                        <h5 className="font-bold text-xs text-[#4A3728]">
+                                          {order.customer_name}
+                                        </h5>
+                                        <p className="text-[10px] font-mono text-[#8C7E6D] mt-0.5">
+                                          {new Date(order.created_at).toLocaleString('pt-BR')} | Bairro: {order.neighborhood || 'Retirada'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-xs font-serif font-black text-[#D2691E] block">
+                                        R$ {Number(order.total).toFixed(2)}
+                                      </span>
+                                      <span className="text-[9px] text-[#8C7E6D] font-mono">
+                                        {order.payment_method === 'pix' ? '⚡ Pix' : '💵 Dinheiro'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* CART ITEMS SUMMARY */}
+                                  <div className="bg-[#FDFBF7] p-2.5 rounded-xl border border-[#E5E0D8]/60 text-xs space-y-1">
+                                    {order.cart && Object.entries(order.cart).map(([itemId, qty]) => {
+                                      const item = menuItems.find(m => m.id === itemId);
+                                      return (
+                                        <div key={itemId} className="flex justify-between text-[11px] text-[#4A3728]">
+                                          <span>{String(qty)}x {item ? item.name : `Item ${itemId}`}</span>
+                                          <span className="font-mono text-[#8C7E6D]">
+                                            R$ {((item ? item.price : 0) * Number(qty)).toFixed(2)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                    {order.delivery_rate > 0 && (
+                                      <div className="flex justify-between text-[11px] text-[#2E7D32] pt-1 border-t border-[#E5E0D8]/60">
+                                        <span>Taxa de Entrega</span>
+                                        <span className="font-mono font-bold">R$ {Number(order.delivery_rate).toFixed(2)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* ORDER FOOTER & STATUS */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#E5E0D8]/60">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-bold text-[#8C7E6D]">Status:</span>
+                                      <select
+                                        value={order.status || 'pendente'}
+                                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                                        className="text-[10px] font-bold bg-white border border-[#E5E0D8] rounded-lg px-2 py-1 text-[#4A3728] focus:outline-none"
+                                      >
+                                        <option value="pendente">⏳ Pendente</option>
+                                        <option value="preparando">🍳 Preparando</option>
+                                        <option value="saiu_entrega">🛵 Saiu para Entrega</option>
+                                        <option value="entregue">✅ Entregue</option>
+                                        <option value="cancelado">❌ Cancelado</option>
+                                      </select>
+                                    </div>
 
                                     {orderIdToConfirmDelete === order.id ? (
-                                      <div className="flex items-center gap-1 animate-scaleIn">
+                                      <div className="flex items-center gap-1">
                                         <button
                                           type="button"
                                           onClick={() => handleDeleteOrder(order.id)}
-                                          className="px-2 py-1 text-[9px] font-black rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all cursor-pointer"
+                                          className="px-2 py-1 text-[9px] font-black rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-sm"
                                         >
-                                          Sim, excluir!
+                                          Confirmar
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => setOrderIdToConfirmDelete(null)}
-                                          className="px-2 py-1 text-[9px] font-bold rounded-lg bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200 transition-all cursor-pointer"
+                                          className="px-2 py-1 text-[9px] font-bold rounded-lg bg-[#F5F2ED] border border-[#E5E0D8] text-[#8C7E6D] hover:bg-[#E5E0D8] transition-all cursor-pointer"
                                         >
-                                          NÃ£o
+                                          Cancelar
                                         </button>
                                       </div>
                                     ) : (
                                       <button
                                         type="button"
                                         onClick={() => setOrderIdToConfirmDelete(order.id)}
-                                        className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition-all flex items-center justify-center cursor-pointer"
-                                        title="Excluir Pedido"
+                                        className="flex items-center gap-1 px-2 py-1 text-[9px] font-bold rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                                       >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-3 h-3" />
+                                        Excluir
                                       </button>
                                     )}
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* TAB 2: GERENCIAR CARDÃPIO (ALTERAR/OCULTAR) */}
+                  {/* TAB 2: GERENCIAR CARDÁPIO (ALTERAR/OCULTAR) */}
                   {adminTab === 'items' && (
                     <div className="space-y-6">
                       <div className="flex items-center justify-between">
@@ -3063,91 +4252,164 @@ export default function Home() {
                           Bairros e Taxas de Entrega
                         </h3>
                         <p className="text-[11px] text-[#8C7E6D]">
-                          Defina o valor da taxa de entrega cobrada por bairro programado.
+                          Cadastre bairros atendidos e configure o valor da taxa de entrega cobrada por localidade.
                         </p>
                       </div>
 
-                      <div className="bg-[#FDFBF7] border border-[#E5E0D8] rounded-2xl p-4 mb-4">
-                        <h4 className="font-bold text-xs text-[#4A3728] mb-3">Adicionar Novo Bairro</h4>
+                      {/* Feedback Alert Banner */}
+                      {neighborhoodMessage && (
+                        <div
+                          className={`p-3 rounded-xl border flex items-center justify-between text-xs font-semibold ${
+                            neighborhoodMessage.type === 'success'
+                              ? 'bg-green-50 border-green-200 text-[#2E7D32]'
+                              : 'bg-red-50 border-red-200 text-red-600'
+                          }`}
+                        >
+                          <span>{neighborhoodMessage.text}</span>
+                          <button
+                            type="button"
+                            onClick={() => setNeighborhoodMessage(null)}
+                            className="p-1 text-gray-400 hover:text-gray-600 font-bold ml-2"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Add Neighborhood Form */}
+                      <form onSubmit={handleAddNeighborhood} className="bg-[#FDFBF7] border border-[#E5E0D8] rounded-2xl p-4 mb-4">
+                        <h4 className="font-bold text-xs text-[#4A3728] mb-3 flex items-center gap-1.5">
+                          <PlusCircle className="w-4 h-4 text-[#8B4513]" />
+                          Adicionar Novo Bairro
+                        </h4>
                         <div className="flex flex-col sm:flex-row gap-2 items-center">
                           <input 
                             type="text" 
-                            placeholder="Nome do Bairro" 
+                            placeholder="Nome do Bairro (ex: Centro, Vila Nova...)" 
                             className="w-full sm:flex-1 px-3 py-2 text-xs bg-white border border-[#E5E0D8] rounded-lg text-[#4A3728] focus:outline-none focus:ring-1 focus:ring-[#8B4513]"
                             value={newNeighborhoodName}
                             onChange={(e) => setNewNeighborhoodName(e.target.value)}
+                            disabled={isNeighborhoodLoading}
                           />
-                          <div className="flex w-full sm:w-auto items-center bg-white border border-[#E5E0D8] rounded-lg px-2">
-                            <span className="font-mono text-xs font-bold text-[#8C7E6D]">R$</span>
+                          <div className="flex w-full sm:w-auto items-center bg-white border border-[#E5E0D8] rounded-lg px-2.5">
+                            <span className="font-mono text-xs font-bold text-[#8C7E6D] mr-1">R$</span>
                             <input 
-                              type="number" 
-                              step="0.50" 
-                              placeholder="0.00" 
-                              className="w-20 px-2 py-2 text-xs font-mono font-bold bg-transparent text-[#4A3728] focus:outline-none"
+                              type="text" 
+                              inputMode="decimal"
+                              placeholder="0,00" 
+                              className="w-20 px-1 py-2 text-xs font-mono font-bold bg-transparent text-[#4A3728] focus:outline-none"
                               value={newNeighborhoodRate}
                               onChange={(e) => setNewNeighborhoodRate(e.target.value)}
+                              disabled={isNeighborhoodLoading}
                             />
                           </div>
                           <button
-                            onClick={handleAddNeighborhood}
-                            className="w-full sm:w-auto px-4 py-2 bg-[#8B4513] hover:bg-[#72380f] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            type="submit"
+                            disabled={isNeighborhoodLoading}
+                            className="w-full sm:w-auto px-5 py-2 bg-[#8B4513] hover:bg-[#72380f] text-white text-xs font-bold rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-sm"
                           >
-                            Adicionar
+                            {isNeighborhoodLoading ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              'Adicionar'
+                            )}
                           </button>
                         </div>
-                      </div>
+                      </form>
 
-                      <div className="bg-white border border-[#E5E0D8] rounded-2xl divide-y divide-[#E5E0D8]/60">
-                        {neighborhoods.map((n) => (
-                          <div key={n.name} className="p-4 flex items-center justify-between">
-                            <div>
-                              <p className="font-bold text-xs text-[#4A3728]">{n.name}</p>
-                              <p className="text-[10px] text-[#8C7E6D] mt-0.5">Taxa de entrega atual</p>
-                            </div>
+                      {/* Neighborhoods List */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-xs text-[#4A3728]">
+                            Bairros Cadastrados ({neighborhoods.length})
+                          </h4>
+                          <span className="text-[10px] text-[#8C7E6D]">
+                            Total de {neighborhoods.length} localidades
+                          </span>
+                        </div>
 
-                            {editingNeighborhood?.name === n.name ? (
-                              <div className="flex items-center gap-1.5" id="editing-rate-box">
-                                <span className="font-mono text-xs font-bold text-[#8C7E6D]">R$</span>
-                                <input
-                                  type="number"
-                                  step="0.50"
-                                  className="w-20 px-2 py-1.5 text-xs font-mono font-bold bg-white border border-[#E5E0D8] rounded-lg text-[#4A3728] focus:outline-none"
-                                  value={editingNeighborhood.rate}
-                                  onChange={(e) => {
-                                    setEditingNeighborhood({
-                                      ...editingNeighborhood,
-                                      rate: Number(e.target.value)
-                                    });
-                                  }}
-                                />
-                                <button
-                                  onClick={() => handleUpdateNeighborhoodRate(n.name, editingNeighborhood.rate)}
-                                  className="p-1.5 rounded-lg bg-[#2E7D32] hover:bg-[#256325] text-white flex items-center justify-center"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setEditingNeighborhood(null)}
-                                  className="p-1.5 rounded-lg border border-[#E5E0D8] hover:bg-gray-100 text-gray-500 text-xs font-bold"
-                                >
-                                  X
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <span className="font-mono text-xs font-black text-[#D2691E]">
-                                  R$ {n.rate.toFixed(2)}
-                                </span>
-                                <button
-                                  onClick={() => setEditingNeighborhood({ ...n })}
-                                  className="px-2.5 py-1.5 rounded-lg border border-[#E5E0D8] text-[9px] font-bold text-[#8C7E6D] hover:bg-[#F5F2ED]"
-                                >
-                                  Alterar Taxa
-                                </button>
-                              </div>
-                            )}
+                        {neighborhoods.length === 0 ? (
+                          <div className="bg-white border border-[#E5E0D8] rounded-2xl p-8 text-center text-[#8C7E6D] text-xs">
+                            Nenhum bairro cadastrado ainda. Use o formulário acima para adicionar.
                           </div>
-                        ))}
+                        ) : (
+                          <div className="bg-white border border-[#E5E0D8] rounded-2xl divide-y divide-[#E5E0D8]/60 shadow-xs">
+                            {neighborhoods.map((n) => (
+                              <div key={n.name} className="p-3.5 sm:p-4 flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-xs text-[#4A3728] truncate">{n.name}</p>
+                                  <p className="text-[10px] text-[#8C7E6D] mt-0.5">Taxa de entrega</p>
+                                </div>
+
+                                {editingNeighborhood?.name === n.name ? (
+                                  <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap justify-end" id="editing-rate-box">
+                                    <div className="flex items-center bg-white border border-[#8B4513] rounded-lg px-2">
+                                      <span className="font-mono text-xs font-bold text-[#8C7E6D] mr-1">R$</span>
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        autoFocus
+                                        className="w-16 px-1 py-1.5 text-xs font-mono font-bold bg-transparent text-[#4A3728] focus:outline-none"
+                                        value={editingNeighborhoodRate}
+                                        onChange={(e) => setEditingNeighborhoodRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleUpdateNeighborhoodRate(n.name);
+                                          if (e.key === 'Escape') setEditingNeighborhood(null);
+                                        }}
+                                        disabled={isNeighborhoodLoading}
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateNeighborhoodRate(n.name)}
+                                      disabled={isNeighborhoodLoading}
+                                      className="p-1.5 rounded-lg bg-[#2E7D32] hover:bg-[#256325] text-white flex items-center justify-center transition-colors disabled:opacity-50"
+                                      title="Salvar Taxa"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingNeighborhood(null);
+                                        setEditingNeighborhoodRate('');
+                                      }}
+                                      disabled={isNeighborhoodLoading}
+                                      className="p-1.5 rounded-lg border border-[#E5E0D8] hover:bg-gray-100 text-gray-500 text-xs font-bold transition-colors"
+                                      title="Cancelar"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                    <span className="font-mono text-xs font-black text-[#D2691E] bg-[#FFF8F0] px-2 py-1 rounded-lg border border-[#F5E6D8]">
+                                      R$ {n.rate.toFixed(2)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditNeighborhood(n)}
+                                      className="px-2.5 py-1.5 rounded-lg border border-[#E5E0D8] text-[10px] font-bold text-[#8C7E6D] hover:bg-[#F5F2ED] hover:text-[#4A3728] transition-colors"
+                                    >
+                                      Alterar Taxa
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteNeighborhood(n.name)}
+                                      className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                      title={`Excluir ${n.name}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3304,14 +4566,15 @@ export default function Home() {
                           onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value as any })}
                           className="w-full px-3 py-2 bg-[#F5F2ED] border border-[#E5E0D8] rounded-xl text-xs font-bold text-[#4A3728] focus:outline-none focus:ring-1 focus:ring-[#8B4513]"
                         >
-                          <option value="artesanais">ðŸ” Artesanais</option>
-                          <option value="tradicionais">ðŸ” Tradicionais</option>
-                          <option value="maionese">ðŸ¥› Maionese</option>
-                          <option value="churrasco">ðŸ¥© Churrasco</option>
-                          <option value="jantinhas">ðŸ› Jantinhas</option>
-                          <option value="bebidas">ðŸ¥¤ Bebidas</option>
-                            <option value="sobremesas">ðŸ° Sobremesas</option>
-                          <option value="acrescimos">âž• Adicionais</option>
+                          <option value="artesanais">🍔 Artesanais</option>
+                          <option value="tradicionais">🍔 Tradicionais</option>
+                          <option value="marmitas">🍱 Marmitas</option>
+                          <option value="churrasco">🥩 Churrasco</option>
+                          <option value="jantinhas">🍛 Jantinhas</option>
+                          <option value="bebidas">🥤 Bebidas</option>
+                          <option value="maionese">🥛 Maionese</option>
+                          <option value="sobremesas">🍰 Sobremesas</option>
+                          <option value="acrescimos">➕ Adicionais</option>
                         </select>
                       </div>
                     </div>
@@ -3402,14 +4665,15 @@ export default function Home() {
                           onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value as any })}
                           className="w-full px-3 py-2 bg-[#F5F2ED] border border-[#E5E0D8] rounded-xl text-xs font-bold text-[#4A3728] focus:outline-none focus:ring-1 focus:ring-[#8B4513]"
                         >
-                          <option value="artesanais">ðŸ” Artesanais</option>
-                          <option value="tradicionais">ðŸ” Tradicionais</option>
-                          <option value="maionese">ðŸ¥› Maionese</option>
-                          <option value="churrasco">ðŸ¥© Churrasco</option>
-                          <option value="jantinhas">ðŸ› Jantinhas</option>
-                          <option value="bebidas">ðŸ¥¤ Bebidas</option>
-                            <option value="sobremesas">ðŸ° Sobremesas</option>
-                          <option value="acrescimos">âž• Adicionais</option>
+                          <option value="artesanais">🍔 Artesanais</option>
+                          <option value="tradicionais">🍔 Tradicionais</option>
+                          <option value="marmitas">🍱 Marmitas</option>
+                          <option value="churrasco">🥩 Churrasco</option>
+                          <option value="jantinhas">🍛 Jantinhas</option>
+                          <option value="bebidas">🥤 Bebidas</option>
+                          <option value="maionese">🥛 Maionese</option>
+                          <option value="sobremesas">🍰 Sobremesas</option>
+                          <option value="acrescimos">➕ Adicionais</option>
                         </select>
                       </div>
                     </div>

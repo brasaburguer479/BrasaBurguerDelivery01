@@ -1,32 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Let's keep a mutable memory cache for the server runtime
-let whatsappNumberCache = process.env.WHATSAPP_NUMBER || '5533998646238';
-let pixKeyCache = process.env.PIX_KEY || 'brasaburguer.pix@gmail.com';
-let deliveryEnabledCache = true;
+import { getAllConfig, saveConfig } from '../../../lib/db';
 
 export async function GET() {
-  return NextResponse.json({
-    whatsappNumber: whatsappNumberCache,
-    pixKey: pixKeyCache,
-    deliveryEnabled: deliveryEnabledCache,
-  });
+  try {
+    const config = await getAllConfig();
+    return NextResponse.json(config);
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
     if (typeof data.whatsappNumber === 'string') {
-      whatsappNumberCache = data.whatsappNumber;
+      await saveConfig('whatsappNumber', data.whatsappNumber);
     }
     if (typeof data.pixKey === 'string') {
-      pixKeyCache = data.pixKey;
+      await saveConfig('pixKey', data.pixKey);
     }
     if (typeof data.deliveryEnabled === 'boolean') {
-      deliveryEnabledCache = data.deliveryEnabled;
+      await saveConfig('deliveryEnabled', String(data.deliveryEnabled));
     }
-    return NextResponse.json({ success: true, whatsappNumber: whatsappNumberCache, pixKey: pixKeyCache, deliveryEnabled: deliveryEnabledCache });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: String(err) }, { status: 400 });
+    const updated = await getAllConfig();
+    return NextResponse.json({ success: true, ...updated });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }
 }

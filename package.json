@@ -3,16 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node -r ./patch-fs.js ./node_modules/next/dist/bin/next dev",
+    "build": "node -r ./patch-fs.js ./node_modules/next/dist/bin/next build",
+    "start": "node -r ./patch-fs.js ./node_modules/next/dist/bin/next start",
     "lint": "eslint .",
     "clean": "next clean"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@hookform/resolvers": "^5.2.1",
+    "@types/better-sqlite3": "^9.6.0",
     "autoprefixer": "^10.4.21",
+    "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.553.0",

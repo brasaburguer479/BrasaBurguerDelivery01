@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import Database from 'better-sqlite3';
 
-// Define structures of Menu Items, Neighborhoods, and Orders
+// Define structures of Menu Items, Neighborhoods, Orders, and Config
 export interface MenuItem {
   id: string;
   name: string;
-  category: 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas';
+  category: 'artesanais' | 'tradicionais' | 'churrasco' | 'jantinhas' | 'bebidas' | 'maionese' | 'acrescimos' | 'sobremesas' | 'marmitas';
   price: number;
   description: string;
   image: string;
@@ -33,12 +34,6 @@ export interface Order {
   observations: Record<string, string>;
   status: 'pendente' | 'preparando' | 'a_caminho' | 'entregue';
   item_extras?: Record<string, Record<string, number>>;
-}
-
-interface DatabaseSchema {
-  menuItems: MenuItem[];
-  neighborhoods: Neighborhood[];
-  orders: Order[];
 }
 
 const DEFAULT_MENU_ITEMS: MenuItem[] = [
@@ -415,7 +410,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     description: 'Adicional de bife de hambúrguer tradicional.',
     image: '/Bife de hambúrguer.jpg'
   },
-  
+
   // SOBREMESAS
   {
     id: 's1',
@@ -432,6 +427,44 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     price: 8.00,
     description: 'Mousse super cremoso de maracujá feito na casa.',
     image: '/Mousse.jpg'
+  },
+
+  // MARMITAS
+  {
+    id: 'item-6401',
+    name: 'Marmitex só salpicão',
+    category: 'marmitas',
+    price: 18.00,
+    description: 'Porção generosa de salpicão especial da casa.',
+    image: '/Marmitex só salpicão.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-5489',
+    name: 'Marmitex só tropeiro',
+    category: 'marmitas',
+    price: 18.00,
+    description: 'Tradicional feijão tropeiro completo e saboroso.',
+    image: '/Marmitex só tropeiro.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-5465',
+    name: 'Marmitex só vinagrete',
+    category: 'marmitas',
+    price: 15.00,
+    description: 'Vinagrete fresco temperado no capricho.',
+    image: '/Marmitex só vinagrete.jpg',
+    hidden: false
+  },
+  {
+    id: 'item-3737',
+    name: 'Marmitex só arroz',
+    category: 'marmitas',
+    price: 12.00,
+    description: 'Arroz soltinho e fresquinho.',
+    image: '/Marmitex só arroz.jpg',
+    hidden: false
   }
 ];
 
@@ -446,252 +479,466 @@ const DEFAULT_NEIGHBORHOODS: Neighborhood[] = [
   { name: 'Córrego da Raiz', rate: 5.00 }
 ];
 
-// Determine DB file location
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-const DB_PATH = path.join(DATA_DIR, 'db.json');
+// Determine data directory location safely for both Windows and Docker/Linux
+function getDataDirectory(): string {
+  const envDir = process.env.DATA_DIR;
+  if (envDir) {
+    if (process.platform === 'win32' && envDir.startsWith('/') && !fs.existsSync(envDir)) {
+      return path.join(process.cwd(), 'data');
+    }
+    return path.isAbsolute(envDir) ? envDir : path.join(process.cwd(), envDir);
+  }
+  return path.join(process.cwd(), 'data');
+}
 
-// Memory cache to avoid synchronous disk reads on every request
-let dbCache: DatabaseSchema | null = null;
-let initPromise: Promise<DatabaseSchema> | null = null;
+// Global Singleton for SQLite Database Connection
+let dbInstance: Database.Database | null = null;
 
-export async function initializeDatabase(): Promise<DatabaseSchema> {
-  if (dbCache) return dbCache;
-  if (initPromise) return initPromise;
+export function getDatabase(): Database.Database {
+  if (dbInstance) return dbInstance;
 
-  initPromise = (async () => {
-    try {
-      // Ensure the directory exists
-      if (!fs.existsSync(DATA_DIR)) {
-        await fs.promises.mkdir(DATA_DIR, { recursive: true });
-      }
+  const dataDir = getDataDirectory();
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
 
-      // Check if file exists
-      if (fs.existsSync(DB_PATH)) {
-        const fileContent = await fs.promises.readFile(DB_PATH, 'utf-8');
+  const dbFilePath = path.join(dataDir, 'brasa.db');
+  const db = new Database(dbFilePath);
+
+  // Enable WAL (Write-Ahead Logging) for high concurrency and performance
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+
+  // 1. Create SQL Tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      price REAL NOT NULL,
+      description TEXT,
+      image TEXT,
+      hidden INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS neighborhoods (
+      name TEXT PRIMARY KEY,
+      rate REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT,
+      delivery_method TEXT NOT NULL,
+      neighborhood TEXT,
+      delivery_rate REAL NOT NULL DEFAULT 0,
+      complement_info TEXT,
+      payment_method TEXT NOT NULL,
+      cash_change_for TEXT,
+      total REAL NOT NULL,
+      cart TEXT NOT NULL,
+      observations TEXT,
+      item_extras TEXT,
+      status TEXT NOT NULL DEFAULT 'pendente'
+    );
+
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  // 2. Data Migration & Seeding from db.json if database is freshly created
+  try {
+    const itemCountRow = db.prepare('SELECT COUNT(*) as count FROM menu_items').get() as { count: number };
+    const jsonPath = path.join(dataDir, 'db.json');
+
+    if (itemCountRow.count === 0) {
+      let migratedFromJson = false;
+
+      if (fs.existsSync(jsonPath)) {
         try {
-          const parsed = JSON.parse(fileContent) as DatabaseSchema;
-          // Ensure structure correctness
-          dbCache = {
-            menuItems: parsed.menuItems || [],
-            neighborhoods: parsed.neighborhoods || [],
-            orders: parsed.orders || [],
-          };
-          return dbCache;
-        } catch (parseErr) {
-          console.error('Failed to parse db.json, recreating...', parseErr);
+          const raw = fs.readFileSync(jsonPath, 'utf-8');
+          const parsed = JSON.parse(raw);
+
+          const insertItem = db.prepare(`
+            INSERT OR REPLACE INTO menu_items (id, name, category, price, description, image, hidden)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          const insertNeighborhood = db.prepare(`
+            INSERT OR REPLACE INTO neighborhoods (name, rate)
+            VALUES (?, ?)
+          `);
+
+          const insertOrder = db.prepare(`
+            INSERT OR REPLACE INTO orders (
+              id, created_at, customer_name, customer_phone, delivery_method,
+              neighborhood, delivery_rate, complement_info, payment_method,
+              cash_change_for, total, cart, observations, item_extras, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          const migrateTransaction = db.transaction(() => {
+            if (Array.isArray(parsed.menuItems)) {
+              for (const item of parsed.menuItems) {
+                insertItem.run(
+                  item.id,
+                  item.name,
+                  item.category,
+                  Number(item.price),
+                  item.description || '',
+                  item.image || '/Bacon Grill.jpg',
+                  item.hidden ? 1 : 0
+                );
+              }
+            }
+
+            if (Array.isArray(parsed.neighborhoods)) {
+              for (const n of parsed.neighborhoods) {
+                insertNeighborhood.run(n.name.trim(), Number(n.rate));
+              }
+            }
+
+            if (Array.isArray(parsed.orders)) {
+              for (const o of parsed.orders) {
+                insertOrder.run(
+                  o.id,
+                  o.created_at || new Date().toISOString(),
+                  o.customer_name || 'Cliente',
+                  o.customer_phone || '',
+                  o.delivery_method || 'entrega',
+                  o.neighborhood || null,
+                  Number(o.delivery_rate || 0),
+                  o.complement_info || '',
+                  o.payment_method || 'pix',
+                  o.cash_change_for || '',
+                  Number(o.total || 0),
+                  typeof o.cart === 'object' ? JSON.stringify(o.cart) : String(o.cart || '{}'),
+                  typeof o.observations === 'object' ? JSON.stringify(o.observations) : String(o.observations || '{}'),
+                  typeof o.item_extras === 'object' ? JSON.stringify(o.item_extras) : String(o.item_extras || '{}'),
+                  o.status || 'pendente'
+                );
+              }
+            }
+          });
+
+          migrateTransaction();
+          migratedFromJson = true;
+          console.log('[SQL Database] Dados migrados com sucesso do db.json para o SQLite!');
+        } catch (jsonErr) {
+          console.error('[SQL Database] Erro ao importar do db.json, populando com defaults...', jsonErr);
         }
       }
 
-      // File does not exist or is corrupt, initialize with defaults
-      const initialData: DatabaseSchema = {
-        menuItems: DEFAULT_MENU_ITEMS,
-        neighborhoods: DEFAULT_NEIGHBORHOODS,
-        orders: [],
-      };
-      await writeDatabaseAtomic(initialData);
-      dbCache = initialData;
-      return dbCache;
-    } catch (err) {
-      console.error('Database initialization failed:', err);
-      // Fallback in-memory database to prevent app crashes
-      dbCache = {
-        menuItems: DEFAULT_MENU_ITEMS,
-        neighborhoods: DEFAULT_NEIGHBORHOODS,
-        orders: [],
-      };
-      return dbCache;
+      // If not migrated from JSON, seed default menu items
+      if (!migratedFromJson) {
+        const insertItem = db.prepare(`
+          INSERT OR REPLACE INTO menu_items (id, name, category, price, description, image, hidden)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        const seedItemsTx = db.transaction(() => {
+          for (const item of DEFAULT_MENU_ITEMS) {
+            insertItem.run(
+              item.id,
+              item.name,
+              item.category,
+              item.price,
+              item.description,
+              item.image,
+              item.hidden ? 1 : 0
+            );
+          }
+        });
+        seedItemsTx();
+      }
     }
-  })();
 
-  return initPromise;
-}
+    // Ensure neighborhoods are populated
+    const neighCountRow = db.prepare('SELECT COUNT(*) as count FROM neighborhoods').get() as { count: number };
+    if (neighCountRow.count === 0) {
+      const insertNeigh = db.prepare('INSERT OR REPLACE INTO neighborhoods (name, rate) VALUES (?, ?)');
+      const seedNeighTx = db.transaction(() => {
+        for (const n of DEFAULT_NEIGHBORHOODS) {
+          insertNeigh.run(n.name, n.rate);
+        }
+      });
+      seedNeighTx();
+    }
 
-// Atomic write to avoid file corruption
-async function writeDatabaseAtomic(data: DatabaseSchema): Promise<void> {
-  const tempPath = DB_PATH + '.tmp';
-  const serialized = JSON.stringify(data, null, 2);
-  
-  // Ensure the directory exists just in case
-  if (!fs.existsSync(DATA_DIR)) {
-    await fs.promises.mkdir(DATA_DIR, { recursive: true });
+    // Ensure default app configurations exist in SQL
+    const initConfig = db.prepare('INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)');
+    initConfig.run('whatsappNumber', process.env.WHATSAPP_NUMBER || '5533999404779');
+    initConfig.run('pixKey', process.env.PIX_KEY || '60200344000176');
+    initConfig.run('deliveryEnabled', 'true');
+
+  } catch (initErr) {
+    console.error('[SQL Database] Erro durante inicialização das tabelas/dados:', initErr);
   }
 
-  await fs.promises.writeFile(tempPath, serialized, 'utf-8');
-  await fs.promises.rename(tempPath, DB_PATH);
+  dbInstance = db;
+  return dbInstance;
 }
 
-// QUEUE to prevent concurrent write collisions (write-locking)
-let writeQueue: Promise<void> = Promise.resolve();
-
-async function executeInQueue<T>(operation: () => Promise<T>): Promise<T> {
-  const currentQueue = writeQueue;
-  let resolvePromise: () => void;
-  writeQueue = new Promise((resolve) => {
-    resolvePromise = resolve;
-  });
-
-  await currentQueue;
-  try {
-    return await operation();
-  } finally {
-    resolvePromise!();
-  }
+// Backward compatibility helper
+export async function initializeDatabase() {
+  getDatabase();
+  return {
+    menuItems: await getMenuItems(),
+    neighborhoods: await getNeighborhoods(),
+    orders: await getOrders(),
+  };
 }
 
-// --- MENU ITEMS DATABASE API ---
+// --- MENU ITEMS DATABASE API (SQL) ---
 
 export async function getMenuItems(): Promise<MenuItem[]> {
-  const db = await initializeDatabase();
-  return db.menuItems;
+  const db = getDatabase();
+  const rows = db.prepare('SELECT id, name, category, price, description, image, hidden FROM menu_items').all() as any[];
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    price: Number(r.price),
+    description: r.description || '',
+    image: r.image || '/Bacon Grill.jpg',
+    hidden: Boolean(r.hidden)
+  }));
 }
 
 export async function saveMenuItem(item: MenuItem): Promise<MenuItem> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    
-    // Check if item exists
-    const index = db.menuItems.findIndex(m => m.id === item.id);
-    if (index !== -1) {
-      db.menuItems[index] = { ...db.menuItems[index], ...item };
-    } else {
-      db.menuItems.push(item);
-    }
-    
-    await writeDatabaseAtomic(db);
-    return item;
-  });
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT INTO menu_items (id, name, category, price, description, image, hidden)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      category = excluded.category,
+      price = excluded.price,
+      description = excluded.description,
+      image = excluded.image,
+      hidden = excluded.hidden
+  `);
+
+  stmt.run(
+    item.id,
+    item.name,
+    item.category,
+    Number(item.price),
+    item.description || '',
+    item.image || '/Bacon Grill.jpg',
+    item.hidden ? 1 : 0
+  );
+
+  return item;
 }
 
 export async function updateMenuItem(item: Partial<MenuItem> & { id: string }): Promise<MenuItem> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const index = db.menuItems.findIndex(m => m.id === item.id);
-    if (index === -1) {
-      throw new Error(`Item do cardápio com ID ${item.id} não encontrado.`);
-    }
-    db.menuItems[index] = { ...db.menuItems[index], ...item };
-    await writeDatabaseAtomic(db);
-    return db.menuItems[index];
-  });
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM menu_items WHERE id = ?').get(item.id) as any;
+  if (!existing) {
+    throw new Error(`Item do cardápio com ID ${item.id} não encontrado.`);
+  }
+
+  const updated: MenuItem = {
+    id: item.id,
+    name: item.name !== undefined ? item.name : existing.name,
+    category: item.category !== undefined ? item.category : existing.category,
+    price: item.price !== undefined ? Number(item.price) : Number(existing.price),
+    description: item.description !== undefined ? item.description : (existing.description || ''),
+    image: item.image !== undefined ? item.image : (existing.image || '/Bacon Grill.jpg'),
+    hidden: item.hidden !== undefined ? item.hidden : Boolean(existing.hidden),
+  };
+
+  await saveMenuItem(updated);
+  return updated;
 }
 
-// --- NEIGHBORHOODS DATABASE API ---
+// --- NEIGHBORHOODS DATABASE API (SQL) ---
 
 export async function getNeighborhoods(): Promise<Neighborhood[]> {
-  const db = await initializeDatabase();
-  return db.neighborhoods;
+  const db = getDatabase();
+  const rows = db.prepare('SELECT name, rate FROM neighborhoods ORDER BY name ASC').all() as any[];
+  return rows.map(r => ({
+    name: r.name,
+    rate: Number(r.rate)
+  }));
 }
 
 export async function saveNeighborhood(neighborhood: Neighborhood): Promise<Neighborhood> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const index = db.neighborhoods.findIndex(n => n.name.toLowerCase() === neighborhood.name.toLowerCase());
-    if (index !== -1) {
-      db.neighborhoods[index] = neighborhood;
-    } else {
-      db.neighborhoods.push(neighborhood);
-    }
-    await writeDatabaseAtomic(db);
-    return neighborhood;
-  });
+  const db = getDatabase();
+  const cleanName = neighborhood.name.trim();
+  const cleanRate = Number(neighborhood.rate);
+
+  const stmt = db.prepare(`
+    INSERT INTO neighborhoods (name, rate)
+    VALUES (?, ?)
+    ON CONFLICT(name) DO UPDATE SET rate = excluded.rate
+  `);
+
+  stmt.run(cleanName, cleanRate);
+  return { name: cleanName, rate: cleanRate };
 }
 
 export async function updateNeighborhood(name: string, rate: number): Promise<Neighborhood> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const index = db.neighborhoods.findIndex(n => n.name.toLowerCase() === name.toLowerCase());
-    if (index === -1) {
-      throw new Error(`Bairro com o nome ${name} não encontrado.`);
-    }
-    db.neighborhoods[index].rate = rate;
-    await writeDatabaseAtomic(db);
-    return db.neighborhoods[index];
-  });
+  return saveNeighborhood({ name, rate });
 }
 
 export async function deleteNeighborhood(name: string): Promise<boolean> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const originalLength = db.neighborhoods.length;
-    db.neighborhoods = db.neighborhoods.filter(n => n.name.toLowerCase() !== name.toLowerCase());
-    if (db.neighborhoods.length === originalLength) {
-      return false;
-    }
-    await writeDatabaseAtomic(db);
-    return true;
-  });
+  const db = getDatabase();
+  const cleanName = name.trim().toLowerCase();
+  const stmt = db.prepare('DELETE FROM neighborhoods WHERE LOWER(TRIM(name)) = ?');
+  const result = stmt.run(cleanName);
+  return result.changes > 0;
 }
 
-// --- ORDERS DATABASE API ---
+// --- ORDERS DATABASE API (SQL) ---
 
 export async function getOrders(): Promise<Order[]> {
-  const db = await initializeDatabase();
-  // Return orders sorted by created_at desc
-  return [...db.orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const db = getDatabase();
+  const rows = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all() as any[];
+
+  return rows.map(r => ({
+    id: r.id,
+    created_at: r.created_at,
+    customer_name: r.customer_name,
+    customer_phone: r.customer_phone || '',
+    delivery_method: r.delivery_method as 'entrega' | 'retirada',
+    neighborhood: r.neighborhood || null,
+    delivery_rate: Number(r.delivery_rate || 0),
+    complement_info: r.complement_info || '',
+    payment_method: r.payment_method as 'pix' | 'dinheiro',
+    cash_change_for: r.cash_change_for || '',
+    total: Number(r.total || 0),
+    cart: r.cart ? (typeof r.cart === 'string' ? JSON.parse(r.cart) : r.cart) : {},
+    observations: r.observations ? (typeof r.observations === 'string' ? JSON.parse(r.observations) : r.observations) : {},
+    item_extras: r.item_extras ? (typeof r.item_extras === 'string' ? JSON.parse(r.item_extras) : r.item_extras) : {},
+    status: r.status as Order['status']
+  }));
 }
 
 export async function saveOrder(orderData: Omit<Order, 'id' | 'created_at' | 'status'>): Promise<Order> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    
-    const newOrder: Order = {
-      ...orderData,
-      id: 'ord_' + Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-      status: 'pendente'
-    };
-    
-    db.orders.push(newOrder);
-    await writeDatabaseAtomic(db);
-    return newOrder;
-  });
+  const db = getDatabase();
+  const newOrder: Order = {
+    ...orderData,
+    id: 'ord_' + Math.random().toString(36).substr(2, 9),
+    created_at: new Date().toISOString(),
+    status: 'pendente'
+  };
+
+  const stmt = db.prepare(`
+    INSERT INTO orders (
+      id, created_at, customer_name, customer_phone, delivery_method,
+      neighborhood, delivery_rate, complement_info, payment_method,
+      cash_change_for, total, cart, observations, item_extras, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  stmt.run(
+    newOrder.id,
+    newOrder.created_at,
+    newOrder.customer_name,
+    newOrder.customer_phone || '',
+    newOrder.delivery_method,
+    newOrder.neighborhood,
+    Number(newOrder.delivery_rate || 0),
+    newOrder.complement_info || '',
+    newOrder.payment_method,
+    newOrder.cash_change_for || '',
+    Number(newOrder.total || 0),
+    JSON.stringify(newOrder.cart || {}),
+    JSON.stringify(newOrder.observations || {}),
+    JSON.stringify(newOrder.item_extras || {}),
+    newOrder.status
+  );
+
+  return newOrder;
 }
 
 export async function updateOrderStatus(id: string, status: Order['status']): Promise<Order> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const index = db.orders.findIndex(o => o.id === id);
-    if (index === -1) {
-      throw new Error(`Pedido com ID ${id} não encontrado.`);
-    }
-    db.orders[index].status = status;
-    await writeDatabaseAtomic(db);
-    return db.orders[index];
-  });
+  const db = getDatabase();
+  const stmt = db.prepare('UPDATE orders SET status = ? WHERE id = ?');
+  const result = stmt.run(status, id);
+
+  if (result.changes === 0) {
+    throw new Error(`Pedido com ID ${id} não encontrado.`);
+  }
+
+  const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as any;
+  return {
+    id: row.id,
+    created_at: row.created_at,
+    customer_name: row.customer_name,
+    customer_phone: row.customer_phone || '',
+    delivery_method: row.delivery_method,
+    neighborhood: row.neighborhood || null,
+    delivery_rate: Number(row.delivery_rate || 0),
+    complement_info: row.complement_info || '',
+    payment_method: row.payment_method,
+    cash_change_for: row.cash_change_for || '',
+    total: Number(row.total || 0),
+    cart: row.cart ? JSON.parse(row.cart) : {},
+    observations: row.observations ? JSON.parse(row.observations) : {},
+    item_extras: row.item_extras ? JSON.parse(row.item_extras) : {},
+    status: row.status
+  };
 }
 
 export async function deleteOrder(id: string): Promise<boolean> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const originalLength = db.orders.length;
-    db.orders = db.orders.filter(o => o.id !== id);
-    if (db.orders.length === originalLength) {
-      return false;
-    }
-    await writeDatabaseAtomic(db);
-    return true;
-  });
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM orders WHERE id = ?');
+  const result = stmt.run(id);
+  return result.changes > 0;
 }
 
 export async function deleteOrders(ids: string[]): Promise<boolean> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    const originalLength = db.orders.length;
-    db.orders = db.orders.filter(o => !ids.includes(o.id));
-    if (db.orders.length === originalLength) {
-      return false;
-    }
-    await writeDatabaseAtomic(db);
-    return true;
-  });
+  if (ids.length === 0) return true;
+  const db = getDatabase();
+  const placeholders = ids.map(() => '?').join(',');
+  const stmt = db.prepare(`DELETE FROM orders WHERE id IN (${placeholders})`);
+  const result = stmt.run(...ids);
+  return result.changes > 0;
 }
 
 export async function deleteAllOrders(): Promise<boolean> {
-  return executeInQueue(async () => {
-    const db = await initializeDatabase();
-    db.orders = [];
-    await writeDatabaseAtomic(db);
-    return true;
-  });
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM orders');
+  stmt.run();
+  return true;
 }
 
+// --- APP CONFIGURATION API (SQL) ---
+
+export async function getConfig(key: string, defaultValue: string = ''): Promise<string> {
+  const db = getDatabase();
+  const row = db.prepare('SELECT value FROM app_config WHERE key = ?').get(key) as { value: string } | undefined;
+  return row ? row.value : defaultValue;
+}
+
+export async function saveConfig(key: string, value: string): Promise<void> {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT INTO app_config (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+  stmt.run(key, value);
+}
+
+export async function getAllConfig(): Promise<{ whatsappNumber: string; pixKey: string; deliveryEnabled: boolean }> {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT key, value FROM app_config').all() as { key: string; value: string }[];
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    map[r.key] = r.value;
+  }
+
+  return {
+    whatsappNumber: map.whatsappNumber || process.env.WHATSAPP_NUMBER || '5533999404779',
+    pixKey: map.pixKey || process.env.PIX_KEY || '60200344000176',
+    deliveryEnabled: map.deliveryEnabled !== undefined ? map.deliveryEnabled === 'true' : true,
+  };
+}

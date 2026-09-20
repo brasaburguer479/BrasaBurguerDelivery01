@@ -22,11 +22,20 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { name, rate } = body;
 
-    if (!name || rate === undefined) {
-      return NextResponse.json({ success: false, error: 'Campos "name" e "rate" são obrigatórios.' }, { status: 400 });
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json({ success: false, error: 'O nome do bairro é obrigatório.' }, { status: 400 });
     }
 
-    const updated = await updateNeighborhood(name, Number(rate));
+    if (rate === undefined || rate === null || rate === '') {
+      return NextResponse.json({ success: false, error: 'O valor da taxa é obrigatório.' }, { status: 400 });
+    }
+
+    const parsedRate = Number(typeof rate === 'string' ? rate.trim().replace(',', '.') : rate);
+    if (isNaN(parsedRate) || parsedRate < 0) {
+      return NextResponse.json({ success: false, error: 'O valor da taxa deve ser um número válido maior ou igual a zero.' }, { status: 400 });
+    }
+
+    const updated = await updateNeighborhood(name.trim(), parsedRate);
 
     return NextResponse.json({
       success: true,
@@ -43,15 +52,24 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, rate } = body;
 
-    if (!name || rate === undefined) {
-      return NextResponse.json({ success: false, error: 'Campos "name" e "rate" são obrigatórios.' }, { status: 400 });
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json({ success: false, error: 'O nome do bairro é obrigatório.' }, { status: 400 });
     }
 
-    const saved = await saveNeighborhood({ name, rate: Number(rate) });
+    if (rate === undefined || rate === null || rate === '') {
+      return NextResponse.json({ success: false, error: 'O valor da taxa é obrigatório.' }, { status: 400 });
+    }
+
+    const parsedRate = Number(typeof rate === 'string' ? rate.trim().replace(',', '.') : rate);
+    if (isNaN(parsedRate) || parsedRate < 0) {
+      return NextResponse.json({ success: false, error: 'O valor da taxa deve ser um número válido maior ou igual a zero.' }, { status: 400 });
+    }
+
+    const saved = await saveNeighborhood({ name: name.trim(), rate: parsedRate });
 
     return NextResponse.json({
       success: true,
-      message: 'Bairro adicionado com sucesso!',
+      message: 'Bairro salvo com sucesso!',
       neighborhood: saved
     });
   } catch (err: any) {
