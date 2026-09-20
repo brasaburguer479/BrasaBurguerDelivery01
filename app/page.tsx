@@ -560,6 +560,7 @@ export default function Home() {
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSavingItem, setIsSavingItem] = useState<boolean>(false);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
   const [isCreatingNewItem, setIsCreatingNewItem] = useState<boolean>(false);
   const [newItemForm, setNewItemForm] = useState<Partial<MenuItem>>({
     id: '',
@@ -1306,6 +1307,42 @@ ${peakDay ? `* **Pico de Vendas:** O dia **${peakDay.date}** registrou o maior v
       setEditingItem(null);
     } finally {
       setIsSavingItem(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNewItem: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const resp = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.url) {
+          if (isNewItem) {
+            setNewItemForm({ ...newItemForm, image: data.url });
+          } else if (editingItem) {
+            setEditingItem({ ...editingItem, image: data.url });
+          }
+        } else {
+          alert('Erro ao fazer upload da imagem: ' + data.error);
+        }
+      } else {
+        alert('Erro ao fazer upload da imagem.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao fazer upload da imagem.');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -4592,6 +4629,14 @@ ${peakDay ? `* **Pico de Vendas:** O dia **${peakDay.date}** registrou o maior v
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider block">URL da Imagem</label>
                       <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, false)}
+                        disabled={isUploadingImage}
+                        className="w-full text-xs text-[#4A3728] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#8B4513] file:text-white hover:file:bg-[#72380f]"
+                      />
+                      {isUploadingImage && <p className="text-xs text-[#8B4513] mt-1">Enviando imagem...</p>}
+                      <input
                         type="text"
                         value={editingItem.image}
                         onChange={(e) => setEditingItem({ ...editingItem, image: e.target.value })}
@@ -4714,6 +4759,14 @@ ${peakDay ? `* **Pico de Vendas:** O dia **${peakDay.date}** registrou o maior v
 
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-[#8C7E6D] uppercase tracking-wider block">URL da Imagem</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, true)}
+                        disabled={isUploadingImage}
+                        className="w-full text-xs text-[#4A3728] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#8B4513] file:text-white hover:file:bg-[#72380f]"
+                      />
+                      {isUploadingImage && <p className="text-xs text-[#8B4513] mt-1">Enviando imagem...</p>}
                       <input
                         type="text"
                         placeholder="Ex: /Bacon Grill.jpg"

@@ -8,3 +8,4 @@ coverage/
 data/*.db
 data/*.db-*
 data/db_backup.json
+data/uploads/

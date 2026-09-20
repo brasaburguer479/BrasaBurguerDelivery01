@@ -480,7 +480,7 @@ const DEFAULT_NEIGHBORHOODS: Neighborhood[] = [
 ];
 
 // Determine data directory location safely for both Windows and Docker/Linux
-function getDataDirectory(): string {
+export function getDataDirectory(): string {
   const envDir = process.env.DATA_DIR;
   if (envDir) {
     if (process.platform === 'win32' && envDir.startsWith('/') && !fs.existsSync(envDir)) {
